@@ -7,6 +7,7 @@ const STAGES = [
   { key: 'brief', label: 'Brief', detail: 'Submitted' },
   { key: 'ceo', label: 'CEO agent', detail: 'Vision + milestones' },
   { key: 'cto', label: 'CTO agent', detail: 'Architecture + tickets' },
+  { key: 'pm', label: 'PM agent', detail: 'User stories' },
 ] as const;
 
 const DOT_CLASSES: Record<StageState, string> = {
@@ -19,14 +20,14 @@ const DOT_CLASSES: Record<StageState, string> = {
 function statesFor(phase: Phase): StageState[] {
   switch (phase) {
     case 'running':
-      return ['done', 'active', 'active'];
+      return ['done', 'active', 'active', 'pending'];
     case 'success':
-      return ['done', 'done', 'done'];
+      return ['done', 'done', 'done', 'done'];
     case 'error':
-      return ['done', 'error', 'error'];
+      return ['done', 'error', 'error', 'error'];
     case 'idle':
     default:
-      return ['pending', 'pending', 'pending'];
+      return ['pending', 'pending', 'pending', 'pending'];
   }
 }
 

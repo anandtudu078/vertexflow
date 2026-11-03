@@ -43,6 +43,20 @@ export interface CTOTechnicalBlueprint {
   tasks: TaskTicket[];
 }
 
+/** A single user story produced by the PM agent. */
+export interface UserStory {
+  story_id: number;
+  user_role: string;
+  feature_goal: string;
+  acceptance_criteria: string[];
+}
+
+/** Product requirements blueprint returned by the PM agent. */
+export interface ProductManagerBlueprint {
+  product_scope_summary: string;
+  user_stories: UserStory[];
+}
+
 /** Response of `POST /api/projects/launch`. Fields can be empty if a node fails. */
 export interface ProjectExecutionResponse {
   status: string;
@@ -50,6 +64,7 @@ export interface ProjectExecutionResponse {
   vision: string;
   milestones: Milestone[];
   technical_blueprint: Partial<CTOTechnicalBlueprint>;
+  product_requirements: Partial<ProductManagerBlueprint>;
 }
 
 /** Response of the backend root route, reachable through the `/health` proxy. */
@@ -65,7 +80,7 @@ export type LogLevel = 'info' | 'success' | 'error';
 export interface LogEntry {
   id: number;
   at: Date;
-  role: 'CEO' | 'CTO' | 'System' | 'Error';
+  role: 'CEO' | 'CTO' | 'PM' | 'System' | 'Error';
   message: string;
   level: LogLevel;
 }

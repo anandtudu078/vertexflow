@@ -4,6 +4,7 @@ import type { ProjectBrief, ProjectExecutionResponse } from '../types';
 import { BlueprintPanel } from './BlueprintPanel';
 import { CheckIcon, CompassIcon, CopyIcon, DownloadIcon } from './Icons';
 import { MilestoneBoard } from './MilestoneBoard';
+import { ProductRequirementsPanel } from './ProductRequirementsPanel';
 import { Badge, Card, SectionHeading } from './ui';
 
 function Stat({ label, value }: { label: string; value: string | number }) {
@@ -28,6 +29,7 @@ export function ResultsView({
   const blueprint = result.technical_blueprint;
   const tasks = blueprint.tasks ?? [];
   const models = blueprint.database_models ?? [];
+  const userStories = result.product_requirements?.user_stories ?? [];
   const stack = brief.target_tech_stack
     .split(',')
     .map((item) => item.trim())
@@ -97,7 +99,7 @@ export function ResultsView({
           <Stat label="Milestones" value={result.milestones.length} />
           <Stat label="Task tickets" value={tasks.length} />
           <Stat label="Data models" value={models.length} />
-          <Stat label="Departments" value={new Set(result.milestones.map((m) => m.assigned_department)).size} />
+          <Stat label="User stories" value={userStories.length} />
         </div>
       </Card>
 
@@ -121,6 +123,7 @@ export function ResultsView({
 
       <MilestoneBoard milestones={result.milestones} />
       <BlueprintPanel blueprint={blueprint} />
+      <ProductRequirementsPanel requirements={result.product_requirements ?? {}} />
     </div>
   );
 }

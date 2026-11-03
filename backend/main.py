@@ -2,6 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 # Import our LangGraph compiled application
@@ -24,7 +25,7 @@ async def lifespan(_: FastAPI):
     logger.info("Account database ready.")
 
     if has_gemini_api_key():
-        logger.info("GEMINI_API_KEY detected; the CEO -> CTO pipeline is ready.")
+        logger.info("GEMINI_API_KEY detected; the CEO -> CTO -> PM pipeline is ready.")
     else:
         logger.warning(
             "GEMINI_API_KEY is not set. /api/projects/launch will return 503 until it is configured."
@@ -35,6 +36,15 @@ async def lifespan(_: FastAPI):
 # Initialize FastAPI application
 app = FastAPI(title="VertexFlow Core Engine", version="1.0.0", lifespan=lifespan)
 app.include_router(auth_router)
+
+# Configure CORS for frontend communication
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins for local testing
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # Pydantic models for incoming project requests
@@ -52,7 +62,7 @@ async def root():
 def launch_project(brief: ProjectBrief, current_user: UserOut = Depends(require_user)):
     """
     Triggers the VertexFlow multi-agent StateGraph workflow:
-    CEO Agent -> CTO Agent -> Final Output State
+    CEO Agent -> CTO Agent -> Product Manager Agent -> Final Output State
     """
     if not has_gemini_api_key():
         raise HTTPException(status_code=503, detail=MISSING_KEY_DETAIL)
@@ -64,6 +74,7 @@ def launch_project(brief: ProjectBrief, current_user: UserOut = Depends(require_
             "company_vision": "",
             "milestones": [],
             "technical_blueprint": {},
+            "product_requirements": {},  # <--- Added PM state field
             "current_status": "Starting Pipeline"
         }
 
@@ -75,7 +86,8 @@ def launch_project(brief: ProjectBrief, current_user: UserOut = Depends(require_
             "current_status": final_state.get("current_status"),
             "vision": final_state.get("company_vision"),
             "milestones": final_state.get("milestones"),
-            "technical_blueprint": final_state.get("technical_blueprint")
+            "technical_blueprint": final_state.get("technical_blueprint"),
+            "product_requirements": final_state.get("product_requirements")  # <--- Returned PM data
         }
 
     except ConfigurationError as exc:

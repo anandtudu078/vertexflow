@@ -113,3 +113,10 @@ export const CheckIcon = (props: IconProps) => (
     <path d="m5 12.5 4.5 4.5L19 7" />
   </Icon>
 );
+
+export const ClipboardIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <rect x="4.5" y="5" width="15" height="16" rx="2" />
+    <path d="M9 5V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1M9 12h6M9 16h4" />
+  </Icon>
+);

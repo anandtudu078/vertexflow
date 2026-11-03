@@ -50,7 +50,7 @@ function Footer() {
   return (
     <footer className="border-t border-slate-800/70 px-4 py-5 sm:px-6">
       <div className="mx-auto flex w-full max-w-[1400px] flex-col items-center justify-between gap-2 text-[11px] text-slate-600 sm:flex-row">
-        <p>VertexFlow · CEO + CTO multi-agent orchestration</p>
+        <p>VertexFlow · CEO + CTO + PM multi-agent orchestration</p>
         <p className="font-mono">FastAPI · LangGraph · Gemini</p>
       </div>
     </footer>
@@ -148,6 +148,8 @@ export default function App() {
     setLogs([]);
     pushLog('System', 'Brief dispatched to the orchestration engine.');
     pushLog('CEO', 'Analyzing the project brief and defining strategy…');
+    pushLog('CTO', 'Designing technical architecture and task tickets…');
+    pushLog('PM', 'Translating strategy into user stories and acceptance criteria…');
 
     const startedAt = performance.now();
 
@@ -176,6 +178,15 @@ export default function App() {
           message: `Blueprint complete: ${data.technical_blueprint.tasks?.length ?? 0} task tickets, ${
             data.technical_blueprint.database_models?.length ?? 0
           } data models.`,
+          level: 'success',
+        },
+        {
+          id: logId.current++,
+          at: new Date(),
+          role: 'PM',
+          message: `Product requirements ready: ${
+            data.product_requirements?.user_stories?.length ?? 0
+          } user ${(data.product_requirements?.user_stories?.length ?? 0) === 1 ? 'story' : 'stories'}.`,
           level: 'success',
         },
         {

@@ -97,5 +97,34 @@ export function blueprintToMarkdown(
     }
   }
 
+  const pm = result.product_requirements;
+  if (pm) {
+    lines.push('## Product Requirements', '');
+
+    if (pm.product_scope_summary) {
+      lines.push('### Product Scope', '', pm.product_scope_summary, '');
+    }
+
+    const stories = pm.user_stories ?? [];
+    if (stories.length > 0) {
+      lines.push('### User Stories', '');
+      for (const story of stories) {
+        lines.push(
+          `#### US-${story.story_id}: ${story.feature_goal}`,
+          '',
+          `_Role:_ ${story.user_role}`,
+          '',
+        );
+        if (story.acceptance_criteria.length > 0) {
+          lines.push('**Acceptance criteria:**', '');
+          for (const criterion of story.acceptance_criteria) {
+            lines.push(`- ${criterion}`);
+          }
+          lines.push('');
+        }
+      }
+    }
+  }
+
   return lines.join('\n');
 }
