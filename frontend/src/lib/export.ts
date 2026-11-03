@@ -126,5 +126,64 @@ export function blueprintToMarkdown(
     }
   }
 
+  const be = result.backend_code;
+  if (be?.module_name || be?.database_models_code || be?.api_endpoints_code) {
+    lines.push('## Backend Code', '');
+    if (be.module_name) lines.push(`**Module:** \`${be.module_name}\``, '');
+
+    if (be.database_models_code) {
+      lines.push('### Database Models', '', '```python', be.database_models_code, '```', '');
+    }
+    if (be.api_endpoints_code) {
+      lines.push('### API Endpoints', '', '```python', be.api_endpoints_code, '```', '');
+    }
+    if (be.dependencies_required && be.dependencies_required.length > 0) {
+      lines.push('### Dependencies', '');
+      for (const dep of be.dependencies_required) lines.push(`- \`${dep}\``);
+      lines.push('');
+    }
+  }
+
+  const fe = result.frontend_code;
+  if (fe?.component_name || fe?.react_tsx_code) {
+    lines.push('## Frontend Code', '');
+    if (fe.component_name) lines.push(`**Component:** \`${fe.component_name}\``, '');
+    if (fe.state_management_summary) lines.push(fe.state_management_summary, '');
+
+    if (fe.react_tsx_code) {
+      lines.push('```tsx', fe.react_tsx_code, '```', '');
+    }
+    if (fe.tailwind_styles_used && fe.tailwind_styles_used.length > 0) {
+      lines.push('### Tailwind Classes', '');
+      for (const cls of fe.tailwind_styles_used) lines.push(`- \`${cls}\``);
+      lines.push('');
+    }
+  }
+
+  const audit = result.security_audit;
+  if (audit?.overall_status || (audit?.vulnerabilities && audit.vulnerabilities.length > 0)) {
+    lines.push('## Security Audit', '');
+    if (audit.security_score !== undefined) {
+      lines.push(`**Score:** ${audit.security_score} / 100`);
+    }
+    if (audit.overall_status) lines.push(`**Status:** ${audit.overall_status}`, '');
+    if (audit.compliance_notes) lines.push(audit.compliance_notes, '');
+
+    const vulns = audit.vulnerabilities ?? [];
+    if (vulns.length > 0) {
+      lines.push('### Vulnerabilities', '');
+      for (const vuln of vulns) {
+        lines.push(
+          `#### ${vuln.vulnerability_id} (${vuln.severity})`,
+          '',
+          vuln.description,
+          '',
+          `_Remediation:_ ${vuln.remediation}`,
+          '',
+        );
+      }
+    }
+  }
+
   return lines.join('\n');
 }

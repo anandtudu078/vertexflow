@@ -25,7 +25,7 @@ async def lifespan(_: FastAPI):
     logger.info("Account database ready.")
 
     if has_gemini_api_key():
-        logger.info("GEMINI_API_KEY detected; the CEO -> CTO -> PM pipeline is ready.")
+        logger.info("GEMINI_API_KEY detected; the CEO -> CTO -> PM -> Backend/Frontend -> Security pipeline is ready.")
     else:
         logger.warning(
             "GEMINI_API_KEY is not set. /api/projects/launch will return 503 until it is configured."
@@ -74,8 +74,11 @@ def launch_project(brief: ProjectBrief, current_user: UserOut = Depends(require_
             "company_vision": "",
             "milestones": [],
             "technical_blueprint": {},
-            "product_requirements": {},  # <--- Added PM state field
-            "current_status": "Starting Pipeline"
+            "product_requirements": {},
+            "backend_code": {},
+            "frontend_code": {},
+            "security_audit": {},
+            "current_status": "Starting Pipeline",
         }
 
         logger.info("Running the agent pipeline for %s", current_user.email)
@@ -87,7 +90,10 @@ def launch_project(brief: ProjectBrief, current_user: UserOut = Depends(require_
             "vision": final_state.get("company_vision"),
             "milestones": final_state.get("milestones"),
             "technical_blueprint": final_state.get("technical_blueprint"),
-            "product_requirements": final_state.get("product_requirements")  # <--- Returned PM data
+            "product_requirements": final_state.get("product_requirements"),
+            "backend_code": final_state.get("backend_code"),
+            "frontend_code": final_state.get("frontend_code"),
+            "security_audit": final_state.get("security_audit"),
         }
 
     except ConfigurationError as exc:
