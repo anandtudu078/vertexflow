@@ -1,21 +1,34 @@
-import os
-from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
-from pydantic import BaseModel
-from typing import List, Dict, Any
-from google import genai
+import logging
+from contextlib import asynccontextmanager
 
-# Load environment variables from the .env file
-load_dotenv()
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from pydantic import BaseModel
 
 # Import our LangGraph compiled application
 from backend.agents.workflow import vertex_flow_app
+from backend.config import ConfigurationError, has_gemini_api_key
+
+logger = logging.getLogger("vertexflow")
+
+MISSING_KEY_DETAIL = (
+    "The agent pipeline is not configured: GEMINI_API_KEY is missing. "
+    "Add it to backend/.env or export it in your shell, then restart the API."
+)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    if has_gemini_api_key():
+        logger.info("GEMINI_API_KEY detected; the CEO -> CTO pipeline is ready.")
+    else:
+        logger.warning(
+            "GEMINI_API_KEY is not set. /api/projects/launch will return 503 until it is configured."
+        )
+    yield
+
 
 # Initialize FastAPI application
-app = FastAPI(title="VertexFlow Core Engine", version="1.0.0")
-
-# Initialize the Google Gemini API client securely from environment variables
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+app = FastAPI(title="VertexFlow Core Engine", version="1.0.0", lifespan=lifespan)
 
 
 # Pydantic models for incoming project requests
@@ -30,11 +43,14 @@ async def root():
 
 
 @app.post("/api/projects/launch")
-async def launch_project(brief: ProjectBrief):
+def launch_project(brief: ProjectBrief):
     """
     Triggers the VertexFlow multi-agent StateGraph workflow:
     CEO Agent -> CTO Agent -> Final Output State
     """
+    if not has_gemini_api_key():
+        raise HTTPException(status_code=503, detail=MISSING_KEY_DETAIL)
+
     try:
         initial_state = {
             "project_statement": brief.project_statement,
@@ -55,7 +71,11 @@ async def launch_project(brief: ProjectBrief):
             "technical_blueprint": final_state.get("technical_blueprint")
         }
 
+    except ConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
     except Exception as e:
+        logger.exception("Agent pipeline failed")
         raise HTTPException(status_code=500, detail=str(e))
 
 

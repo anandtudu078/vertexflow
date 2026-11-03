@@ -1,15 +1,9 @@
-import os
-from dotenv import load_dotenv
-from google import genai
-from google.genai import types
-from pydantic import BaseModel
 from typing import List
 
-# Load environment variables from the .env file
-load_dotenv()
+from google.genai import types
+from pydantic import BaseModel
 
-# Initialize the Gemini client securely from environment variables
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+from backend.agents.llm import get_client
 
 
 class TaskTicket(BaseModel):
@@ -43,7 +37,7 @@ def run_cto_agent(project_statement: str, target_tech_stack: str, ceo_milestones
     and break down the execution into actionable developer task tickets.
     """
 
-    response = client.models.generate_content(
+    response = get_client().models.generate_content(
         model='gemini-2.5-flash',
         contents=prompt,
         config=types.GenerateContentConfig(
