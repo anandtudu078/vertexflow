@@ -96,6 +96,9 @@ talks to its own origin — no CORS setup needed during development.
 | Variable | App | Required | Purpose |
 | --- | --- | --- | --- |
 | `GEMINI_API_KEY` | backend | yes | Gemini credentials, read from `backend/.env` or the environment |
+| `GEMINI_MODEL` | backend | no | Model id, default `gemini-3.8-flash` |
+| `VERTEXFLOW_DB` | backend | no | SQLite file for accounts and sessions, default `backend/vertexflow.db` |
+| `VERTEXFLOW_COOKIE_SECURE` | backend | no | Set to `true` when served over HTTPS so the session cookie gets `Secure` |
 | `VITE_BACKEND_URL` | frontend dev | no | Dev proxy target, default `http://127.0.0.1:8000` |
 | `VITE_API_BASE_URL` | frontend build | no | Absolute backend origin; leave unset to use the same-origin proxy |
 
@@ -104,7 +107,29 @@ in the backend (see [Known limitations](#known-limitations)).
 
 ---
 
+## Authentication
+
+The dashboard is gated behind an account; `POST /api/projects/launch` requires a valid session.
+
+- **Accounts** live in SQLite (`users` table). Passwords are hashed with **scrypt** from the
+  standard library, with a per-user salt and a self-describing hash format — no extra dependency.
+- **Sessions** are server-side rows (`sessions` table) referenced by a random token in an `HttpOnly`
+  cookie (`SameSite=Lax`, `Secure` when `VERTEXFLOW_COOKIE_SECURE=true`). Sessions last 7 days and
+  are revoked on logout.
+- **Registration is open** to whoever can reach the API, so create the first account, then keep the
+  port private (or put a proxy in front of it) if you expose it publicly.
+- There is no password reset, email verification or rate limiting yet.
+
+| Endpoint | Body | Behaviour |
+| --- | --- | --- |
+| `POST /api/auth/register` | `{email, password}` | `201` and a session cookie; `409` if the email exists; `422` for an invalid email or password under 8 characters |
+| `POST /api/auth/login` | `{email, password}` | `200` and a session cookie; `401` on bad credentials |
+| `POST /api/auth/logout` | — | `204`, deletes the session row and clears the cookie |
+| `GET /api/auth/me` | — | `200` with the user, or `401` when the session is missing/expired |
+
 ## API
+
+All `/api/projects/*` routes require a session; unauthenticated calls return `401`.
 
 ### `POST /api/projects/launch`
 
@@ -147,9 +172,10 @@ Response:
 
 | Status | Meaning |
 | --- | --- |
+| `401` | No valid session — sign in |
 | `422` | Request body failed validation |
 | `503` | `GEMINI_API_KEY` is not configured |
-| `500` | An agent or the graph failed while running |
+| `500` | An agent or the graph failed while running (the upstream model error is returned as `detail`) |
 
 ### `GET /`
 
@@ -168,7 +194,8 @@ narrates progress locally. Real streaming is a follow-up.
 .
 ├── backend/
 │   ├── main.py              # FastAPI app, launch endpoint, health check
-│   ├── config.py            # Environment loading + API key validation
+│   ├── auth.py              # Accounts, scrypt hashing, cookie sessions, auth routes
+│   ├── config.py            # Environment loading, API key validation, model id
 │   └── agents/
 │       ├── ceo.py           # Vision + milestones
 │       ├── cto.py           # Architecture + models + tickets
@@ -176,9 +203,9 @@ narrates progress locally. Real streaming is a follow-up.
 │       └── workflow.py      # LangGraph StateGraph wiring
 ├── frontend/
 │   ├── src/
-│   │   ├── App.tsx          # Run state machine and layout
-│   │   ├── components/      # Form, telemetry, pipeline, results, primitives
-│   │   ├── lib/             # API client, export helpers, utilities
+│   │   ├── App.tsx          # Session gate, run state machine and layout
+│   │   ├── components/      # Auth screen, form, telemetry, pipeline, results
+│   │   ├── lib/             # API client, auth client, export helpers, utilities
 │   │   └── types/           # Contract mirrored from the Pydantic models
 │   └── README.md            # Frontend-specific documentation
 ├── pyproject.toml
@@ -217,8 +244,10 @@ troubleshooting details.
 | Symptom | Cause |
 | --- | --- |
 | Dashboard says "Backend offline" | The API is not running on port 8000, or the proxy target is wrong |
+| "Incorrect email or password" | No account exists yet — create one on the sign-in screen |
+| `401` on launch | The session expired (7 days) — sign in again |
 | `503` on launch | `GEMINI_API_KEY` missing from `backend/.env` or the environment |
-| `500` on launch | Agent failure — check the server logs; usually the key is invalid or the model is unavailable |
+| `500` with a model message | The upstream model failed; `gemini-3.8-flash` can return transient `503 UNAVAILABLE` under load. Retry, or set `GEMINI_MODEL` |
 | Network tab shows `502` | The proxy forwarded the request but the backend refused the connection |
 | Blank page | Build/runtime error — check the browser console |
 
@@ -235,7 +264,8 @@ This project is functional but not production-ready:
 - **Unhardened input.** The brief is interpolated directly into agent prompts, and `500` responses
   echo the underlying exception text.
 - **No tests, CI or container configuration.**
-- **No auth or rate limiting** on the endpoint that spends Gemini quota.
+- **No rate limiting or login throttling**, and registration is open to anyone who can reach the API.
+- **No password reset or email verification.**
 
 ## Roadmap
 

@@ -1,11 +1,13 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
 # Import our LangGraph compiled application
 from backend.agents.workflow import vertex_flow_app
+from backend.auth import UserOut, init_db, require_user
+from backend.auth import router as auth_router
 from backend.config import ConfigurationError, has_gemini_api_key
 
 logger = logging.getLogger("vertexflow")
@@ -18,6 +20,9 @@ MISSING_KEY_DETAIL = (
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    init_db()
+    logger.info("Account database ready.")
+
     if has_gemini_api_key():
         logger.info("GEMINI_API_KEY detected; the CEO -> CTO pipeline is ready.")
     else:
@@ -29,6 +34,7 @@ async def lifespan(_: FastAPI):
 
 # Initialize FastAPI application
 app = FastAPI(title="VertexFlow Core Engine", version="1.0.0", lifespan=lifespan)
+app.include_router(auth_router)
 
 
 # Pydantic models for incoming project requests
@@ -43,7 +49,7 @@ async def root():
 
 
 @app.post("/api/projects/launch")
-def launch_project(brief: ProjectBrief):
+def launch_project(brief: ProjectBrief, current_user: UserOut = Depends(require_user)):
     """
     Triggers the VertexFlow multi-agent StateGraph workflow:
     CEO Agent -> CTO Agent -> Final Output State
@@ -61,6 +67,7 @@ def launch_project(brief: ProjectBrief):
             "current_status": "Starting Pipeline"
         }
 
+        logger.info("Running the agent pipeline for %s", current_user.email)
         final_state = vertex_flow_app.invoke(initial_state)
 
         return {

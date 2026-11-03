@@ -1,3 +1,18 @@
+/** Account returned by the auth endpoints (`backend.auth.UserOut`). */
+export interface AuthUser {
+  id: number;
+  email: string;
+  created_at: string;
+}
+
+/** Login and registration payload. */
+export interface Credentials {
+  email: string;
+  password: string;
+}
+
+export type AuthState = 'checking' | 'anonymous' | 'authenticated' | 'unreachable';
+
 /** Payload accepted by `POST /api/projects/launch` (backend `ProjectBrief`). */
 export interface ProjectBrief {
   project_statement: string;

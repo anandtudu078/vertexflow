@@ -1,12 +1,14 @@
 # VertexFlow — Frontend
 
-Single-page dashboard for the VertexFlow multi-agent orchestrator. You submit a project
-brief, the **CEO agent** turns it into a company vision and strategic milestones, and the
-**CTO agent** turns those into an architecture overview, database models and developer
+Single-page dashboard for the VertexFlow multi-agent orchestrator. You sign in, submit a
+project brief, the **CEO agent** turns it into a company vision and strategic milestones, and
+the **CTO agent** turns those into an architecture overview, database models and developer
 task tickets.
 
 The UI shows the run as it happens: form validation, agent telemetry, pipeline progress,
-loading skeletons, and the generated blueprint with copy/export actions.
+loading skeletons, and the generated blueprint with copy/export actions. Access is gated by an
+email/password session cookie issued by the backend — an anonymous visitor only sees the sign-in
+screen.
 
 ## Stack
 
@@ -73,7 +75,8 @@ src/
 ├── main.tsx                # React root
 ├── index.css               # Tailwind entry, theme tokens, custom utilities
 ├── components/
-│   ├── Header.tsx          # Brand + backend status pill
+│   ├── AuthScreen.tsx      # Sign in / create account, validation and errors
+│   ├── Header.tsx          # Brand, backend status pill, account + sign out
 │   ├── BriefForm.tsx       # Brief editor, stack presets, submit/cancel
 │   ├── TelemetryPanel.tsx  # Live agent log
 │   ├── PipelineStages.tsx  # Brief → CEO → CTO progress
@@ -86,6 +89,7 @@ src/
 │   └── ui.tsx              # Card, Badge, SectionHeading primitives
 ├── lib/
 │   ├── api.ts              # Typed API client, timeouts, error normalisation
+│   ├── auth.ts             # Session client: register, login, logout, current user
 │   ├── export.ts           # JSON download and Markdown export
 │   ├── tone.ts             # Badge tones, difficulty mapping
 │   └── cn.ts               # className helper
@@ -110,6 +114,9 @@ reached through the `/health` proxy entry.
 
 ### Client behaviour
 
+- The app checks `GET /api/auth/me` on load: no session shows the sign-in screen, an unreachable
+  backend shows a retry screen, and a valid session unlocks the dashboard. A `401` during a run
+  drops back to the sign-in screen instead of leaving a broken error state.
 - Statements need 12+ characters and a tech stack 2+ characters before launch.
   `Ctrl`/`⌘` + `Enter` submits from the textarea.
 - A run can be cancelled; the request is aborted and the UI returns to idle.
@@ -131,6 +138,8 @@ dashboard is designed for dark mode only.
 
 | Symptom                                   | Likely cause                                                              |
 | ----------------------------------------- | ------------------------------------------------------------------------- |
+| Stuck on the sign-in screen               | No account exists yet — use "Create account"; check the backend is up      |
+| `401` returned by `/api/auth/me`          | Expected until you sign in; the app treats it as "anonymous"               |
 | Blank page                                | `index.html` entry point or a runtime error — check the browser console   |
 | Header pill says "Backend offline"        | FastAPI is not running on port 8000, or the proxy target is wrong         |
 | "Could not reach the backend" on launch   | Dev proxy target unreachable; run the backend or set `VITE_BACKEND_URL`   |
