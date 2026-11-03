@@ -1,0 +1,245 @@
+# VertexFlow
+
+**An autonomous virtual software enterprise.** Submit a project brief and two AI agents run a
+pipeline: a **CEO agent** defines the company vision and strategic milestones, then a **CTO agent**
+turns that strategy into an architecture, database models and developer task tickets — all rendered
+in a web dashboard you can export.
+
+```
+ project brief  ──►  CEO agent  ──►  CTO agent  ──►  dashboard
+ (statement +       (vision +        (architecture,
+  tech stack)        3–5 milestones)  models, tickets)
+```
+
+Built with **FastAPI + LangGraph + Gemini** on the backend and **React + TypeScript + Tailwind** on
+the frontend.
+
+---
+
+## What it does
+
+1. You describe a product and the stack you want to build it with.
+2. **`run_ceo_agent`** — sets a company vision and breaks execution into 3–5 sequential milestones
+   with owning departments.
+3. **`run_cto_agent`** — reads the brief plus those milestones and returns an architecture overview,
+   the required database models and actionable engineering tickets with difficulty ratings.
+4. The dashboard streams the run, then presents vision, milestones, architecture, models and tickets,
+   with **Markdown** and **JSON** export.
+
+Both agents are LangGraph nodes wired as a `StateGraph` (`ceo_agent → cto_agent → END`) and use Gemini
+structured output (`response_schema`), so responses deserialize straight into Pydantic models.
+
+---
+
+## Tech stack
+
+| Layer     | Tools                                                                     |
+| --------- | ------------------------------------------------------------------------- |
+| Backend   | Python 3.14, FastAPI, LangGraph, `google-genai` (Gemini 2.5 Flash), Uvicorn |
+| Frontend  | React 19, TypeScript, Vite 8, Tailwind CSS 4                              |
+| Packaging | `uv` (backend), `npm` (frontend)                                          |
+
+---
+
+## Quick start
+
+### Prerequisites
+
+- **Python 3.14+** and [`uv`](https://docs.astral.sh/uv/)
+- **Node.js 20.19+** (Vite 8's engine requirement; 22.12+ also works)
+- A **Gemini API key** from [Google AI Studio](https://aistudio.google.com/apikey)
+
+### 1. Backend
+
+```bash
+# from the repository root
+uv sync
+```
+
+Create `backend/.env` with your key:
+
+```dotenv
+GEMINI_API_KEY=your-key-here
+```
+
+Start the API:
+
+```bash
+uv run uvicorn backend.main:app --reload --port 8000
+```
+
+| Check | Expected |
+| --- | --- |
+| <http://127.0.0.1:8000/> | `{"status":"online","message":"VertexFlow Orchestration Engine is running."}` |
+| <http://127.0.0.1:8000/docs> | Interactive OpenAPI docs |
+
+A missing key does **not** crash the server: it logs a warning at startup and
+`POST /api/projects/launch` returns `503` explaining how to fix it.
+
+### 2. Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open <http://localhost:5173>.
+
+The dev server proxies `/api` and `/health` to `http://127.0.0.1:8000`, so the browser only ever
+talks to its own origin — no CORS setup needed during development.
+
+---
+
+## Configuration
+
+| Variable | App | Required | Purpose |
+| --- | --- | --- | --- |
+| `GEMINI_API_KEY` | backend | yes | Gemini credentials, read from `backend/.env` or the environment |
+| `VITE_BACKEND_URL` | frontend dev | no | Dev proxy target, default `http://127.0.0.1:8000` |
+| `VITE_API_BASE_URL` | frontend build | no | Absolute backend origin; leave unset to use the same-origin proxy |
+
+For a production build with a separate API origin, set `VITE_API_BASE_URL` **and** allow that origin
+in the backend (see [Known limitations](#known-limitations)).
+
+---
+
+## API
+
+### `POST /api/projects/launch`
+
+```json
+{
+  "project_statement": "An AI-powered code review platform that flags risky diffs.",
+  "target_tech_stack": "Python, FastAPI, React, PostgreSQL"
+}
+```
+
+Response:
+
+```json
+{
+  "status": "success",
+  "current_status": "CTO Architecture Blueprint Complete",
+  "vision": "Become the fastest way for teams to ship safe code.",
+  "milestones": [
+    {
+      "milestone_id": 1,
+      "title": "Ship the review engine",
+      "description": "Detect risky diffs and surface inline suggestions.",
+      "assigned_department": "Engineering"
+    }
+  ],
+  "technical_blueprint": {
+    "architecture_overview": "FastAPI service, Postgres, React dashboard.",
+    "database_models": ["User", "Repository", "Review", "Suggestion"],
+    "tasks": [
+      {
+        "task_id": 1,
+        "title": "Diff ingestion endpoint",
+        "description": "Accept webhooks and persist parsed diffs.",
+        "difficulty": "Medium"
+      }
+    ]
+  }
+}
+```
+
+| Status | Meaning |
+| --- | --- |
+| `422` | Request body failed validation |
+| `503` | `GEMINI_API_KEY` is not configured |
+| `500` | An agent or the graph failed while running |
+
+### `GET /`
+
+Liveness check used by the dashboard's connection indicator.
+
+### `WS /ws/monitor/{project_id}`
+
+Accepts a connection and echoes messages. **It is not yet wired to the agent run** — the dashboard
+narrates progress locally. Real streaming is a follow-up.
+
+---
+
+## Project layout
+
+```
+.
+├── backend/
+│   ├── main.py              # FastAPI app, launch endpoint, health check
+│   ├── config.py            # Environment loading + API key validation
+│   └── agents/
+│       ├── ceo.py           # Vision + milestones
+│       ├── cto.py           # Architecture + models + tickets
+│       ├── llm.py           # Lazily created, shared Gemini client
+│       └── workflow.py      # LangGraph StateGraph wiring
+├── frontend/
+│   ├── src/
+│   │   ├── App.tsx          # Run state machine and layout
+│   │   ├── components/      # Form, telemetry, pipeline, results, primitives
+│   │   ├── lib/             # API client, export helpers, utilities
+│   │   └── types/           # Contract mirrored from the Pydantic models
+│   └── README.md            # Frontend-specific documentation
+├── pyproject.toml
+└── uv.lock
+```
+
+See [`frontend/README.md`](frontend/README.md) for the frontend architecture, styling and
+troubleshooting details.
+
+---
+
+## Commands
+
+### Backend (repository root)
+
+| Command | Description |
+| --- | --- |
+| `uv sync` | Install dependencies from `uv.lock` |
+| `uv run uvicorn backend.main:app --reload --port 8000` | Run the API with auto-reload |
+| `uv lock --check` | Verify the lock file is up to date |
+
+### Frontend (`cd frontend`)
+
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Dev server with HMR and the API proxy |
+| `npm run build` | Production build into `dist/` |
+| `npm run preview` | Preview the production build |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run lint` | ESLint over TypeScript sources |
+
+---
+
+## Troubleshooting
+
+| Symptom | Cause |
+| --- | --- |
+| Dashboard says "Backend offline" | The API is not running on port 8000, or the proxy target is wrong |
+| `503` on launch | `GEMINI_API_KEY` missing from `backend/.env` or the environment |
+| `500` on launch | Agent failure — check the server logs; usually the key is invalid or the model is unavailable |
+| Network tab shows `502` | The proxy forwarded the request but the backend refused the connection |
+| Blank page | Build/runtime error — check the browser console |
+
+---
+
+## Known limitations
+
+This project is functional but not production-ready:
+
+- **No CORS middleware.** Works behind the Vite proxy only; a separate-origin deployment needs
+  `CORSMiddleware`.
+- **No persistence.** There is no `project_id` or run history; refreshing discards the result.
+- **Synthetic telemetry.** The WebSocket endpoint is a stub; progress is narrated client-side.
+- **Unhardened input.** The brief is interpolated directly into agent prompts, and `500` responses
+  echo the underlying exception text.
+- **No tests, CI or container configuration.**
+- **No auth or rate limiting** on the endpoint that spends Gemini quota.
+
+## Roadmap
+
+1. CORS, model timeouts/retries, and sanitized error responses.
+2. Tests (mocked agent client) plus a CI workflow running lint, typecheck, build and pytest.
+3. Real event streaming over `/ws/monitor`, replacing the narrated telemetry.
+4. Project persistence with a `project_id`, enabling history, sharing and refinement loops.
