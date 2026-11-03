@@ -1,6 +1,6 @@
 import { API_ORIGIN_LABEL } from '../lib/api';
 import { cn } from '../lib/cn';
-import type { ApiStatus } from '../types';
+import type { ApiStatus, AuthUser } from '../types';
 
 const STATUS_META: Record<ApiStatus, { label: string; classes: string; dot: string }> = {
   checking: {
@@ -23,9 +23,13 @@ const STATUS_META: Record<ApiStatus, { label: string; classes: string; dot: stri
 export function Header({
   status,
   onRefresh,
+  user = null,
+  onSignOut,
 }: {
   status: ApiStatus;
   onRefresh: () => void;
+  user?: AuthUser | null;
+  onSignOut?: () => void;
 }) {
   const meta = STATUS_META[status];
 
@@ -71,6 +75,24 @@ export function Header({
             <span className={cn('h-1.5 w-1.5 rounded-full', meta.dot)} />
             {meta.label}
           </button>
+
+          {user && onSignOut ? (
+            <div className="flex items-center gap-2 border-l border-slate-800 pl-2">
+              <span
+                className="hidden max-w-[160px] truncate text-[11px] text-slate-400 sm:inline"
+                title={user.email}
+              >
+                {user.email}
+              </span>
+              <button
+                type="button"
+                onClick={onSignOut}
+                className="cursor-pointer rounded-lg border border-slate-800 px-2.5 py-1 text-[11px] font-medium text-slate-400 transition hover:border-rose-500/40 hover:text-rose-300"
+              >
+                Sign out
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
     </header>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AuthScreen } from './components/AuthScreen';
 import { BriefForm } from './components/BriefForm';
 import { EmptyState } from './components/EmptyState';
 import { Header } from './components/Header';
@@ -8,8 +9,11 @@ import { ResultsSkeleton } from './components/ResultsSkeleton';
 import { ResultsView } from './components/ResultsView';
 import { TelemetryPanel } from './components/TelemetryPanel';
 import { ApiError, checkBackendHealth, launchProject } from './lib/api';
+import { fetchCurrentUser, logoutAccount } from './lib/auth';
 import type {
   ApiStatus,
+  AuthState,
+  AuthUser,
   LogEntry,
   Phase,
   ProjectBrief,
@@ -42,6 +46,17 @@ const WELCOME_LOG: LogEntry = {
   level: 'info',
 };
 
+function Footer() {
+  return (
+    <footer className="border-t border-slate-800/70 px-4 py-5 sm:px-6">
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col items-center justify-between gap-2 text-[11px] text-slate-600 sm:flex-row">
+        <p>VertexFlow · CEO + CTO multi-agent orchestration</p>
+        <p className="font-mono">FastAPI · LangGraph · Gemini</p>
+      </div>
+    </footer>
+  );
+}
+
 export default function App() {
   const [statement, setStatement] = useState<string>('');
   const [techStack, setTechStack] = useState<string>('');
@@ -51,6 +66,8 @@ export default function App() {
   const [submittedBrief, setSubmittedBrief] = useState<ProjectBrief | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [health, setHealth] = useState<ApiStatus>('checking');
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [authState, setAuthState] = useState<AuthState>('checking');
 
   const logId = useRef<number>(1);
   const abortRef = useRef<AbortController | null>(null);
@@ -70,6 +87,17 @@ export default function App() {
     setHealth(online ? 'online' : 'offline');
   }, []);
 
+  const loadSession = useCallback(async () => {
+    setAuthState('checking');
+    try {
+      const current = await fetchCurrentUser();
+      setUser(current);
+      setAuthState(current ? 'authenticated' : 'anonymous');
+    } catch {
+      setAuthState('unreachable');
+    }
+  }, []);
+
   useEffect(() => {
     const tick = () => {
       void refreshHealth();
@@ -83,7 +111,22 @@ export default function App() {
   }, [refreshHealth]);
 
   useEffect(() => {
+    const initial = window.setTimeout(() => {
+      void loadSession();
+    }, 0);
+    return () => window.clearTimeout(initial);
+  }, [loadSession]);
+
+  useEffect(() => {
     return () => abortRef.current?.abort();
+  }, []);
+
+  const resetRun = useCallback(() => {
+    setResult(null);
+    setSubmittedBrief(null);
+    setError(null);
+    setPhase('idle');
+    setLogs([{ ...WELCOME_LOG, at: new Date() }]);
   }, []);
 
   const handleLaunch = useCallback(async () => {
@@ -150,6 +193,14 @@ export default function App() {
         return;
       }
 
+      if (caught instanceof ApiError && caught.status === 401) {
+        setUser(null);
+        setAuthState('anonymous');
+        setPhase('idle');
+        pushLog('Error', caught.message, 'error');
+        return;
+      }
+
       const message =
         caught instanceof ApiError
           ? caught.message
@@ -178,21 +229,89 @@ export default function App() {
 
   const handleNewProject = useCallback(() => {
     abortRef.current?.abort();
-    setResult(null);
-    setSubmittedBrief(null);
-    setError(null);
-    setPhase('idle');
-    setLogs([{ ...WELCOME_LOG, at: new Date() }]);
+    resetRun();
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
+  }, [resetRun]);
 
   const handleRetry = useCallback(() => {
     void handleLaunch();
   }, [handleLaunch]);
 
+  const handleSignOut = useCallback(() => {
+    abortRef.current?.abort();
+    void logoutAccount().finally(() => {
+      setUser(null);
+      setAuthState('anonymous');
+      resetRun();
+    });
+  }, [resetRun]);
+
+  const handleAuthenticated = useCallback((next: AuthUser) => {
+    setUser(next);
+    setAuthState('authenticated');
+    setHealth('online');
+  }, []);
+
+  if (authState === 'checking') {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <div className="flex items-center gap-3 text-sm text-slate-400">
+          <RefreshIcon className="h-4 w-4 animate-spin" />
+          Checking your session…
+        </div>
+      </div>
+    );
+  }
+
+  if (authState === 'unreachable') {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <Header status={health} onRefresh={() => void refreshHealth(true)} />
+        <main className="flex flex-1 items-center justify-center px-4 py-10">
+          <div className="panel max-w-md p-6 text-center">
+            <AlertIcon className="mx-auto h-6 w-6 text-rose-400" />
+            <h1 className="mt-3 text-base font-semibold text-white">
+              Cannot reach the backend
+            </h1>
+            <p className="mt-2 text-sm leading-relaxed text-slate-400">
+              Start the FastAPI server on port 8000, then retry. Your session cannot be
+              checked until the API responds.
+            </p>
+            <button
+              type="button"
+              onClick={() => void loadSession()}
+              className="mt-5 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500"
+            >
+              <RefreshIcon className="h-4 w-4" />
+              Retry connection
+            </button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (authState === 'anonymous' || !user) {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <Header status={health} onRefresh={() => void refreshHealth(true)} />
+        <main className="flex-1">
+          <AuthScreen backendOnline={health === 'online'} onAuthenticated={handleAuthenticated} />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
-      <Header status={health} onRefresh={() => void refreshHealth(true)} />
+      <Header
+        status={health}
+        onRefresh={() => void refreshHealth(true)}
+        user={user}
+        onSignOut={handleSignOut}
+      />
 
       <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 sm:px-6 lg:py-8">
         <div className="grid gap-5 lg:grid-cols-[minmax(320px,380px)_minmax(0,1fr)] lg:items-start">
@@ -251,12 +370,7 @@ export default function App() {
         </div>
       </main>
 
-      <footer className="border-t border-slate-800/70 px-4 py-5 sm:px-6">
-        <div className="mx-auto flex w-full max-w-[1400px] flex-col items-center justify-between gap-2 text-[11px] text-slate-600 sm:flex-row">
-          <p>VertexFlow · CEO + CTO multi-agent orchestration</p>
-          <p className="font-mono">FastAPI · LangGraph · Gemini</p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
