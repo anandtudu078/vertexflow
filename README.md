@@ -96,7 +96,7 @@ talks to its own origin — no CORS setup needed during development.
 | Variable | App | Required | Purpose |
 | --- | --- | --- | --- |
 | `GEMINI_API_KEY` | backend | yes | Gemini credentials, read from `backend/.env` or the environment |
-| `GEMINI_MODEL` | backend | no | Model id, default `gemini-3.8-flash` |
+| `GEMINI_MODEL` | backend | no | Model id, default `gemini-3.5-flash-lite` |
 | `VERTEXFLOW_DB` | backend | no | SQLite file for accounts and sessions, default `backend/vertexflow.db` |
 | `VERTEXFLOW_COOKIE_SECURE` | backend | no | Set to `true` when served over HTTPS so the session cookie gets `Secure` |
 | `VITE_BACKEND_URL` | frontend dev | no | Dev proxy target, default `http://127.0.0.1:8000` |
@@ -247,7 +247,7 @@ troubleshooting details.
 | "Incorrect email or password" | No account exists yet — create one on the sign-in screen |
 | `401` on launch | The session expired (7 days) — sign in again |
 | `503` on launch | `GEMINI_API_KEY` missing from `backend/.env` or the environment |
-| `500` with a model message | The upstream model failed; `gemini-3.8-flash` can return transient `503 UNAVAILABLE` under load. Retry, or set `GEMINI_MODEL` |
+| `500` with a model message | The upstream model failed; `gemini-3.5-flash-lite` can return transient `503 UNAVAILABLE` under load. Retry, or set `GEMINI_MODEL` |
 | Network tab shows `502` | The proxy forwarded the request but the backend refused the connection |
 | Blank page | Build/runtime error — check the browser console |
 
