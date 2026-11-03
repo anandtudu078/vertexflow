@@ -4,6 +4,7 @@ from google.genai import types
 from pydantic import BaseModel
 
 from backend.agents.llm import get_client
+from backend.config import GEMINI_MODEL
 
 
 class TaskTicket(BaseModel):
@@ -38,7 +39,7 @@ def run_cto_agent(project_statement: str, target_tech_stack: str, ceo_milestones
     """
 
     response = get_client().models.generate_content(
-        model='gemini-2.5-flash',
+        model=GEMINI_MODEL,
         contents=prompt,
         config=types.GenerateContentConfig(
             response_mime_type="application/json",

@@ -7,6 +7,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 API_KEY_ENV_VAR = "GEMINI_API_KEY"
+MODEL_ENV_VAR = "GEMINI_MODEL"
+DEFAULT_MODEL = "gemini-3.8-flash"
+
+# The previous default, gemini-2.5-flash, now returns 404 "no longer available".
+GEMINI_MODEL = (os.environ.get(MODEL_ENV_VAR) or DEFAULT_MODEL).strip() or DEFAULT_MODEL
 
 
 class ConfigurationError(RuntimeError):
