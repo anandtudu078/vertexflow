@@ -1,10 +1,13 @@
 import { useCallback, useState } from 'react';
 import { blueprintToMarkdown, downloadBlueprintJson } from '../lib/export';
 import type { ProjectBrief, ProjectExecutionResponse } from '../types';
+import { BackendCodePanel } from './BackendCodePanel';
 import { BlueprintPanel } from './BlueprintPanel';
+import { FrontendCodePanel } from './FrontendCodePanel';
 import { CheckIcon, CompassIcon, CopyIcon, DownloadIcon } from './Icons';
 import { MilestoneBoard } from './MilestoneBoard';
 import { ProductRequirementsPanel } from './ProductRequirementsPanel';
+import { SecurityAuditPanel } from './SecurityAuditPanel';
 import { Badge, Card, SectionHeading } from './ui';
 
 function Stat({ label, value }: { label: string; value: string | number }) {
@@ -30,6 +33,9 @@ export function ResultsView({
   const tasks = blueprint.tasks ?? [];
   const models = blueprint.database_models ?? [];
   const userStories = result.product_requirements?.user_stories ?? [];
+  const vulnCount = result.security_audit?.vulnerabilities?.length ?? 0;
+  const securityScore = result.security_audit?.security_score ?? 0;
+
   const stack = brief.target_tech_stack
     .split(',')
     .map((item) => item.trim())
@@ -47,6 +53,7 @@ export function ResultsView({
 
   return (
     <div className="animate-rise space-y-4">
+      {/* Header card */}
       <Card className="bg-gradient-to-br from-indigo-500/10 via-ink-900/80 to-ink-900/80">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -63,7 +70,11 @@ export function ResultsView({
               onClick={handleCopy}
               className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/60 px-2.5 py-1.5 text-[11px] font-medium text-slate-300 transition hover:border-indigo-500/40 hover:text-white"
             >
-              {copied ? <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> : <CopyIcon className="h-3.5 w-3.5" />}
+              {copied ? (
+                <CheckIcon className="h-3.5 w-3.5 text-emerald-400" />
+              ) : (
+                <CopyIcon className="h-3.5 w-3.5" />
+              )}
               {copied ? 'Copied' : 'Copy Markdown'}
             </button>
             <button
@@ -80,6 +91,7 @@ export function ResultsView({
         <p className="mt-4 line-clamp-3 text-base leading-relaxed font-medium text-white">
           {brief.project_statement}
         </p>
+
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
           {stack.map((tech) => (
             <Badge key={tech} tone="indigo">
@@ -95,14 +107,18 @@ export function ResultsView({
           </button>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {/* Stats strip */}
+        <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
           <Stat label="Milestones" value={result.milestones.length} />
-          <Stat label="Task tickets" value={tasks.length} />
-          <Stat label="Data models" value={models.length} />
+          <Stat label="Tickets" value={tasks.length} />
+          <Stat label="DB models" value={models.length} />
           <Stat label="User stories" value={userStories.length} />
+          <Stat label="Vulns" value={vulnCount} />
+          <Stat label="Sec score" value={securityScore > 0 ? `${securityScore}/100` : '—'} />
         </div>
       </Card>
 
+      {/* CEO vision */}
       <Card>
         <SectionHeading
           icon={<CompassIcon />}
@@ -121,9 +137,19 @@ export function ResultsView({
         )}
       </Card>
 
+      {/* Strategy + architecture */}
       <MilestoneBoard milestones={result.milestones} />
       <BlueprintPanel blueprint={blueprint} />
+
+      {/* PM requirements */}
       <ProductRequirementsPanel requirements={result.product_requirements ?? {}} />
+
+      {/* Worker code outputs */}
+      <BackendCodePanel backendCode={result.backend_code ?? {}} />
+      <FrontendCodePanel frontendCode={result.frontend_code ?? {}} />
+
+      {/* Security audit */}
+      <SecurityAuditPanel audit={result.security_audit ?? {}} />
     </div>
   );
 }

@@ -1,11 +1,15 @@
 import type {
+  BackendCodeBlueprint,
+  FrontendCodeBlueprint,
   HealthResponse,
   Milestone,
   ProductManagerBlueprint,
   ProjectBrief,
   ProjectExecutionResponse,
+  SecurityAuditReport,
   TaskTicket,
   UserStory,
+  VulnerabilityItem,
 } from '../types';
 
 /**
@@ -129,6 +133,7 @@ function normalizeResponse(payload: unknown): ProjectExecutionResponse {
   }
 
   const data = payload as Record<string, unknown>;
+
   const blueprint =
     typeof data.technical_blueprint === 'object' && data.technical_blueprint !== null
       ? (data.technical_blueprint as Record<string, unknown>)
@@ -137,6 +142,21 @@ function normalizeResponse(payload: unknown): ProjectExecutionResponse {
   const pmRaw =
     typeof data.product_requirements === 'object' && data.product_requirements !== null
       ? (data.product_requirements as Record<string, unknown>)
+      : {};
+
+  const backendRaw =
+    typeof data.backend_code === 'object' && data.backend_code !== null
+      ? (data.backend_code as Record<string, unknown>)
+      : {};
+
+  const frontendRaw =
+    typeof data.frontend_code === 'object' && data.frontend_code !== null
+      ? (data.frontend_code as Record<string, unknown>)
+      : {};
+
+  const auditRaw =
+    typeof data.security_audit === 'object' && data.security_audit !== null
+      ? (data.security_audit as Record<string, unknown>)
       : {};
 
   return {
@@ -155,10 +175,32 @@ function normalizeResponse(payload: unknown): ProjectExecutionResponse {
       product_scope_summary: asText(pmRaw.product_scope_summary),
       user_stories: asArray<UserStory>(pmRaw.user_stories),
     },
+    backend_code: {
+      module_name: asText(backendRaw.module_name),
+      database_models_code: asText(backendRaw.database_models_code),
+      api_endpoints_code: asText(backendRaw.api_endpoints_code),
+      dependencies_required: asArray<unknown>(backendRaw.dependencies_required).filter(
+        (d): d is string => typeof d === 'string',
+      ),
+    } satisfies BackendCodeBlueprint,
+    frontend_code: {
+      component_name: asText(frontendRaw.component_name),
+      react_tsx_code: asText(frontendRaw.react_tsx_code),
+      tailwind_styles_used: asArray<unknown>(frontendRaw.tailwind_styles_used).filter(
+        (s): s is string => typeof s === 'string',
+      ),
+      state_management_summary: asText(frontendRaw.state_management_summary),
+    } satisfies FrontendCodeBlueprint,
+    security_audit: {
+      security_score: typeof auditRaw.security_score === 'number' ? auditRaw.security_score : 0,
+      overall_status: asText(auditRaw.overall_status),
+      vulnerabilities: asArray<VulnerabilityItem>(auditRaw.vulnerabilities),
+      compliance_notes: asText(auditRaw.compliance_notes),
+    } satisfies SecurityAuditReport,
   };
 }
 
-/** Runs the CEO → CTO agent pipeline. */
+/** Runs the full CEO → CTO → PM → Backend/Frontend → Security agent pipeline. */
 export async function launchProject(
   brief: ProjectBrief,
   signal?: AbortSignal,

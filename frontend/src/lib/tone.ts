@@ -16,3 +16,19 @@ export function difficultyTone(difficulty: string): Tone {
   if (value.includes('easy') || value.includes('low') || value.includes('simple')) return 'emerald';
   return 'slate';
 }
+
+/** Maps a security vulnerability severity label onto a badge tone. */
+export function severityTone(severity: string): Tone {
+  const value = severity.toLowerCase();
+  if (value.includes('critical') || value.includes('high')) return 'rose';
+  if (value.includes('warning') || value.includes('medium')) return 'amber';
+  if (value.includes('info') || value.includes('low')) return 'indigo';
+  return 'slate';
+}
+
+/** Maps a security score (1–100) onto a tone. */
+export function scoreTone(score: number): Tone {
+  if (score >= 80) return 'emerald';
+  if (score >= 50) return 'amber';
+  return 'rose';
+}

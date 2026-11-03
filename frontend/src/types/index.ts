@@ -57,6 +57,41 @@ export interface ProductManagerBlueprint {
   user_stories: UserStory[];
 }
 
+/** Backend Worker agent output. */
+export interface BackendCodeBlueprint {
+  module_name: string;
+  database_models_code: string;
+  api_endpoints_code: string;
+  dependencies_required: string[];
+}
+
+/** Frontend Worker agent output. */
+export interface FrontendCodeBlueprint {
+  component_name: string;
+  react_tsx_code: string;
+  tailwind_styles_used: string[];
+  state_management_summary: string;
+}
+
+/** A single vulnerability found by the Security Auditor. */
+export interface VulnerabilityItem {
+  vulnerability_id: string;
+  /** Free-form severity label, e.g. "Critical", "Warning", "Info". */
+  severity: string;
+  description: string;
+  remediation: string;
+}
+
+/** Security Auditor agent output. */
+export interface SecurityAuditReport {
+  /** Score from 1–100. */
+  security_score: number;
+  /** e.g. "Passed", "Requires Fixes", "Rejected". */
+  overall_status: string;
+  vulnerabilities: VulnerabilityItem[];
+  compliance_notes: string;
+}
+
 /** Response of `POST /api/projects/launch`. Fields can be empty if a node fails. */
 export interface ProjectExecutionResponse {
   status: string;
@@ -65,6 +100,9 @@ export interface ProjectExecutionResponse {
   milestones: Milestone[];
   technical_blueprint: Partial<CTOTechnicalBlueprint>;
   product_requirements: Partial<ProductManagerBlueprint>;
+  backend_code: Partial<BackendCodeBlueprint>;
+  frontend_code: Partial<FrontendCodeBlueprint>;
+  security_audit: Partial<SecurityAuditReport>;
 }
 
 /** Response of the backend root route, reachable through the `/health` proxy. */
@@ -80,7 +118,7 @@ export type LogLevel = 'info' | 'success' | 'error';
 export interface LogEntry {
   id: number;
   at: Date;
-  role: 'CEO' | 'CTO' | 'PM' | 'System' | 'Error';
+  role: 'CEO' | 'CTO' | 'PM' | 'Backend' | 'Frontend' | 'Security' | 'System' | 'Error';
   message: string;
   level: LogLevel;
 }

@@ -50,7 +50,7 @@ function Footer() {
   return (
     <footer className="border-t border-slate-800/70 px-4 py-5 sm:px-6">
       <div className="mx-auto flex w-full max-w-[1400px] flex-col items-center justify-between gap-2 text-[11px] text-slate-600 sm:flex-row">
-        <p>VertexFlow · CEO + CTO + PM multi-agent orchestration</p>
+        <p>VertexFlow · CEO → CTO → PM → Backend/Frontend → Security</p>
         <p className="font-mono">FastAPI · LangGraph · Gemini</p>
       </div>
     </footer>
@@ -150,6 +150,9 @@ export default function App() {
     pushLog('CEO', 'Analyzing the project brief and defining strategy…');
     pushLog('CTO', 'Designing technical architecture and task tickets…');
     pushLog('PM', 'Translating strategy into user stories and acceptance criteria…');
+    pushLog('Backend', 'Generating FastAPI / SQLAlchemy backend code…');
+    pushLog('Frontend', 'Generating React / TypeScript component code…');
+    pushLog('Security', 'Auditing generated code for vulnerabilities…');
 
     const startedAt = performance.now();
 
@@ -188,6 +191,36 @@ export default function App() {
             data.product_requirements?.user_stories?.length ?? 0
           } user ${(data.product_requirements?.user_stories?.length ?? 0) === 1 ? 'story' : 'stories'}.`,
           level: 'success',
+        },
+        {
+          id: logId.current++,
+          at: new Date(),
+          role: 'Backend',
+          message: `Backend code generated: module "${data.backend_code?.module_name ?? '—'}", ${
+            data.backend_code?.dependencies_required?.length ?? 0
+          } dependencies.`,
+          level: 'success',
+        },
+        {
+          id: logId.current++,
+          at: new Date(),
+          role: 'Frontend',
+          message: `Frontend component generated: "${data.frontend_code?.component_name ?? '—'}".`,
+          level: 'success',
+        },
+        {
+          id: logId.current++,
+          at: new Date(),
+          role: 'Security',
+          message: `Security audit complete: score ${data.security_audit?.security_score ?? '—'}/100, ${
+            data.security_audit?.vulnerabilities?.length ?? 0
+          } issue(s) found — ${data.security_audit?.overall_status ?? 'unknown'}.`,
+          level:
+            (data.security_audit?.security_score ?? 0) >= 80
+              ? 'success'
+              : (data.security_audit?.security_score ?? 0) >= 50
+                ? 'info'
+                : 'error',
         },
         {
           id: logId.current++,

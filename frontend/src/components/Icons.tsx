@@ -120,3 +120,24 @@ export const ClipboardIcon = (props: IconProps) => (
     <path d="M9 5V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1M9 12h6M9 16h4" />
   </Icon>
 );
+
+export const CodeIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="m7 8-4 4 4 4M17 8l4 4-4 4M14 4l-4 16" />
+  </Icon>
+);
+
+export const ShieldIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="M12 3 4 6.5v5C4 16 7.6 20.2 12 21c4.4-.8 8-5 8-9.5v-5L12 3Z" />
+    <path d="m9 12 2 2 4-4" />
+  </Icon>
+);
+
+export const PackageIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" />
+    <path d="M12 3v18M4 7.5l8 4.5 8-4.5" />
+    <path d="M8 5.25 16 9.75" />
+  </Icon>
+);
