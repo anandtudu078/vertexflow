@@ -7,18 +7,19 @@ __pycache__/
 *.so
 
 # Distribution / packaging
-.bin/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
+# (anchored to the repo root so names like lib/ do not swallow frontend source folders)
+/.bin/
+/build/
+/develop-eggs/
+/dist/
+/downloads/
+/eggs/
+/lib/
+/lib64/
+/parts/
+/sdist/
+/var/
+/wheels/
 share/python-wheels/
 *.egg-info/
 .installed.cfg
@@ -29,7 +30,7 @@ MANIFEST
 .venv/
 venv/
 ENV/
-env/
+/env/
 
 # Environment variables & secrets
 .env
@@ -40,3 +41,7 @@ env/
 .vscode/
 *.swp
 *.swo
+# SQLite accounts database
+*.db
+*.db-wal
+*.db-shm
