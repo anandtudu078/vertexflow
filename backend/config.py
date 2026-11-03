@@ -1,16 +1,19 @@
 """Environment configuration shared by the API and the agent nodes."""
 
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
+# Explicitly load backend/.env regardless of the process working directory.
+load_dotenv(dotenv_path=Path(__file__).parent / ".env")
 
 API_KEY_ENV_VAR = "GEMINI_API_KEY"
 MODEL_ENV_VAR = "GEMINI_MODEL"
-DEFAULT_MODEL = "gemini-3.8-flash"
+DEFAULT_MODEL = "gemini-3.5-flash-lite"
 
-# The previous default, gemini-2.5-flash, now returns 404 "no longer available".
+# gemini-2.5-flash is deprecated (routes to gemini-3.5-flash-lite after Dec 1 2026).
+# gemini-3.8-flash does not exist. The current stable model is gemini-3.5-flash-lite.
 GEMINI_MODEL = (os.environ.get(MODEL_ENV_VAR) or DEFAULT_MODEL).strip() or DEFAULT_MODEL
 
 
