@@ -17,7 +17,7 @@ loading skeletons, and the generated blueprint with copy/export actions.
 
 ## Requirements
 
-- Node.js 20+
+- Node.js 20.19+ (Vite 8's engine requirement; 22.12+ also works)
 - The VertexFlow FastAPI backend running on `http://127.0.0.1:8000`
   (it needs `GEMINI_API_KEY` in `backend/.env` and the FastAPI, LangGraph and
   `google-genai` packages installed)
