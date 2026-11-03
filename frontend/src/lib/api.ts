@@ -1,9 +1,11 @@
 import type {
   HealthResponse,
   Milestone,
+  ProductManagerBlueprint,
   ProjectBrief,
   ProjectExecutionResponse,
   TaskTicket,
+  UserStory,
 } from '../types';
 
 /**
@@ -132,6 +134,11 @@ function normalizeResponse(payload: unknown): ProjectExecutionResponse {
       ? (data.technical_blueprint as Record<string, unknown>)
       : {};
 
+  const pmRaw =
+    typeof data.product_requirements === 'object' && data.product_requirements !== null
+      ? (data.product_requirements as Record<string, unknown>)
+      : {};
+
   return {
     status: asText(data.status, 'unknown'),
     current_status: asText(data.current_status, 'Pipeline finished'),
@@ -143,6 +150,10 @@ function normalizeResponse(payload: unknown): ProjectExecutionResponse {
         (model): model is string => typeof model === 'string',
       ),
       tasks: asArray<TaskTicket>(blueprint.tasks),
+    },
+    product_requirements: {
+      product_scope_summary: asText(pmRaw.product_scope_summary),
+      user_stories: asArray<UserStory>(pmRaw.user_stories),
     },
   };
 }

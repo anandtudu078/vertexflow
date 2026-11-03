@@ -1,14 +1,16 @@
 # VertexFlow
 
-**An autonomous virtual software enterprise.** Submit a project brief and two AI agents run a
-pipeline: a **CEO agent** defines the company vision and strategic milestones, then a **CTO agent**
-turns that strategy into an architecture, database models and developer task tickets — all rendered
-in a web dashboard you can export.
+**An autonomous virtual software enterprise.** Submit a project brief and three AI agents run a
+pipeline: a **CEO agent** defines the company vision and strategic milestones, a **CTO agent**
+turns that strategy into an architecture, database models and developer task tickets, and a **PM
+agent** translates everything into product requirements and user stories — all rendered in a web
+dashboard you can export.
 
 ```
- project brief  ──►  CEO agent  ──►  CTO agent  ──►  dashboard
- (statement +       (vision +        (architecture,
-  tech stack)        3–5 milestones)  models, tickets)
+ project brief  ──►  CEO agent  ──►  CTO agent  ──►  PM agent  ──►  dashboard
+ (statement +       (vision +        (architecture,   (product scope,
+  tech stack)        3–5 milestones)  models, tickets) user stories +
+                                                       acceptance criteria)
 ```
 
 Built with **FastAPI + LangGraph + Gemini** on the backend and **React + TypeScript + Tailwind** on
@@ -23,21 +25,24 @@ the frontend.
    with owning departments.
 3. **`run_cto_agent`** — reads the brief plus those milestones and returns an architecture overview,
    the required database models and actionable engineering tickets with difficulty ratings.
-4. The dashboard streams the run, then presents vision, milestones, architecture, models and tickets,
-   with **Markdown** and **JSON** export.
+4. **`run_pm_agent`** — reads the brief, milestones and technical blueprint and produces a product
+   scope summary plus 3–5 user stories each with explicit acceptance criteria.
+5. The dashboard streams the run, then presents vision, milestones, architecture, models, tickets
+   and user stories, with **Markdown** and **JSON** export of the full output.
 
-Both agents are LangGraph nodes wired as a `StateGraph` (`ceo_agent → cto_agent → END`) and use Gemini
-structured output (`response_schema`), so responses deserialize straight into Pydantic models.
+All three agents are LangGraph nodes wired as a `StateGraph`
+(`ceo_agent → cto_agent → pm_agent → END`) and use Gemini structured output (`response_schema`),
+so responses deserialize straight into Pydantic models.
 
 ---
 
 ## Tech stack
 
-| Layer     | Tools                                                                     |
-| --------- | ------------------------------------------------------------------------- |
-| Backend   | Python 3.14, FastAPI, LangGraph, `google-genai` (Gemini 2.5 Flash), Uvicorn |
-| Frontend  | React 19, TypeScript, Vite 8, Tailwind CSS 4                              |
-| Packaging | `uv` (backend), `npm` (frontend)                                          |
+| Layer     | Tools                                                                        |
+| --------- | ---------------------------------------------------------------------------- |
+| Backend   | Python 3.14, FastAPI, LangGraph, `google-genai` (Gemini 3.5 Flash), Uvicorn |
+| Frontend  | React 19, TypeScript, Vite 8, Tailwind CSS 4                                 |
+| Packaging | `uv` (backend), `npm` (frontend)                                             |
 
 ---
 
@@ -127,6 +132,8 @@ The dashboard is gated behind an account; `POST /api/projects/launch` requires a
 | `POST /api/auth/logout` | — | `204`, deletes the session row and clears the cookie |
 | `GET /api/auth/me` | — | `200` with the user, or `401` when the session is missing/expired |
 
+---
+
 ## API
 
 All `/api/projects/*` routes require a session; unauthenticated calls return `401`.
@@ -145,7 +152,7 @@ Response:
 ```json
 {
   "status": "success",
-  "current_status": "CTO Architecture Blueprint Complete",
+  "current_status": "Product Requirements & User Stories Complete",
   "vision": "Become the fastest way for teams to ship safe code.",
   "milestones": [
     {
@@ -164,6 +171,20 @@ Response:
         "title": "Diff ingestion endpoint",
         "description": "Accept webhooks and persist parsed diffs.",
         "difficulty": "Medium"
+      }
+    ]
+  },
+  "product_requirements": {
+    "product_scope_summary": "A developer tool that automatically reviews pull requests...",
+    "user_stories": [
+      {
+        "story_id": 1,
+        "user_role": "Developer",
+        "feature_goal": "See inline suggestions on my pull request",
+        "acceptance_criteria": [
+          "Suggestions appear within 30 seconds of opening a PR",
+          "Each suggestion links to the relevant diff line"
+        ]
       }
     ]
   }
@@ -199,12 +220,14 @@ narrates progress locally. Real streaming is a follow-up.
 │   └── agents/
 │       ├── ceo.py           # Vision + milestones
 │       ├── cto.py           # Architecture + models + tickets
+│       ├── pm.py            # Product scope + user stories + acceptance criteria
 │       ├── llm.py           # Lazily created, shared Gemini client
-│       └── workflow.py      # LangGraph StateGraph wiring
+│       └── workflow.py      # LangGraph StateGraph: ceo → cto → pm → END
 ├── frontend/
 │   ├── src/
 │   │   ├── App.tsx          # Session gate, run state machine and layout
-│   │   ├── components/      # Auth screen, form, telemetry, pipeline, results
+│   │   ├── components/      # Auth screen, form, telemetry, pipeline, results,
+│   │   │                    # milestone board, blueprint panel, PM requirements panel
 │   │   ├── lib/             # API client, auth client, export helpers, utilities
 │   │   └── types/           # Contract mirrored from the Pydantic models
 │   └── README.md            # Frontend-specific documentation
@@ -247,7 +270,7 @@ troubleshooting details.
 | "Incorrect email or password" | No account exists yet — create one on the sign-in screen |
 | `401` on launch | The session expired (7 days) — sign in again |
 | `503` on launch | `GEMINI_API_KEY` missing from `backend/.env` or the environment |
-| `500` with a model message | The upstream model failed; `gemini-3.5-flash-lite` can return transient `503 UNAVAILABLE` under load. Retry, or set `GEMINI_MODEL` |
+| `500` with a model message | The upstream model failed; `gemini-3.5-flash-lite` can return transient `503 UNAVAILABLE` under load. Retry, or set `GEMINI_MODEL` to a different model id |
 | Network tab shows `502` | The proxy forwarded the request but the backend refused the connection |
 | Blank page | Build/runtime error — check the browser console |
 
@@ -257,8 +280,6 @@ troubleshooting details.
 
 This project is functional but not production-ready:
 
-- **No CORS middleware.** Works behind the Vite proxy only; a separate-origin deployment needs
-  `CORSMiddleware`.
 - **No persistence.** There is no `project_id` or run history; refreshing discards the result.
 - **Synthetic telemetry.** The WebSocket endpoint is a stub; progress is narrated client-side.
 - **Unhardened input.** The brief is interpolated directly into agent prompts, and `500` responses
@@ -266,10 +287,11 @@ This project is functional but not production-ready:
 - **No tests, CI or container configuration.**
 - **No rate limiting or login throttling**, and registration is open to anyone who can reach the API.
 - **No password reset or email verification.**
+- **CORS is wide-open** (`allow_origins=["*"]`). Restrict allowed origins before any public deployment.
 
 ## Roadmap
 
-1. CORS, model timeouts/retries, and sanitized error responses.
+1. Restricted CORS origins, model timeouts/retries, and sanitized error responses.
 2. Tests (mocked agent client) plus a CI workflow running lint, typecheck, build and pytest.
 3. Real event streaming over `/ws/monitor`, replacing the narrated telemetry.
 4. Project persistence with a `project_id`, enabling history, sharing and refinement loops.
