@@ -1,0 +1,72 @@
+import os
+from dotenv import load_dotenv
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from pydantic import BaseModel
+from typing import List, Dict, Any
+from google import genai
+
+# Load environment variables from the .env file
+load_dotenv()
+
+# Import our LangGraph compiled application
+from backend.agents.workflow import vertex_flow_app
+
+# Initialize FastAPI application
+app = FastAPI(title="VertexFlow Core Engine", version="1.0.0")
+
+# Initialize the Google Gemini API client securely from environment variables
+client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+
+
+# Pydantic models for incoming project requests
+class ProjectBrief(BaseModel):
+    project_statement: str
+    target_tech_stack: str
+
+
+@app.get("/")
+async def root():
+    return {"status": "online", "message": "VertexFlow Orchestration Engine is running."}
+
+
+@app.post("/api/projects/launch")
+async def launch_project(brief: ProjectBrief):
+    """
+    Triggers the VertexFlow multi-agent StateGraph workflow:
+    CEO Agent -> CTO Agent -> Final Output State
+    """
+    try:
+        initial_state = {
+            "project_statement": brief.project_statement,
+            "target_tech_stack": brief.target_tech_stack,
+            "company_vision": "",
+            "milestones": [],
+            "technical_blueprint": {},
+            "current_status": "Starting Pipeline"
+        }
+
+        final_state = vertex_flow_app.invoke(initial_state)
+
+        return {
+            "status": "success",
+            "current_status": final_state.get("current_status"),
+            "vision": final_state.get("company_vision"),
+            "milestones": final_state.get("milestones"),
+            "technical_blueprint": final_state.get("technical_blueprint")
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.websocket("/ws/monitor/{project_id}")
+async def websocket_monitor(websocket: WebSocket, project_id: str):
+    await websocket.accept()
+    try:
+        await websocket.send_json({"role": "System", "status": "Connected to VertexFlow telemetry stream."})
+        while True:
+            data = await websocket.receive_text()
+            await websocket.send_json({"echo": data})
+
+    except WebSocketDisconnect:
+        print(f"Client disconnected from project monitor: {project_id}")
