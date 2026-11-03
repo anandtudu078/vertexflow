@@ -1,0 +1,104 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+
+  --color-ink-950: #05070f;
+  --color-ink-900: #080c18;
+  --color-ink-850: #0b1120;
+  --color-ink-800: #0f172a;
+
+  --animate-fade-in: fade-in 0.45s ease-out both;
+  --animate-rise: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes shimmer {
+    from {
+      background-position: -200% 0;
+    }
+    to {
+      background-position: 200% 0;
+    }
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-ink-950 text-slate-300 antialiased;
+    font-family: var(--font-sans);
+    background-image:
+      radial-gradient(60rem 40rem at 12% -10%, rgba(99, 102, 241, 0.16), transparent 60%),
+      radial-gradient(50rem 32rem at 92% 0%, rgba(16, 185, 129, 0.08), transparent 60%);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    @apply bg-indigo-500/30 text-white;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-indigo-400;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-slate-700/70;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-600;
+  }
+}
+
+@utility panel {
+  @apply rounded-2xl border border-slate-800/80 bg-ink-900/70 shadow-xl shadow-black/20 backdrop-blur;
+}
+
+@utility field {
+  @apply w-full rounded-xl border border-slate-800 bg-ink-950/80 px-3.5 py-3 text-sm text-white placeholder:text-slate-600 transition focus:border-indigo-500 focus:bg-ink-950 focus:outline-none;
+}
+
+@utility skeleton {
+  background-image: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.06) 0%,
+    rgba(148, 163, 184, 0.16) 50%,
+    rgba(148, 163, 184, 0.06) 100%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+}
