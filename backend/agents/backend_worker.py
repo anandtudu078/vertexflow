@@ -1,9 +1,11 @@
+import uuid
 from google.genai import types
 from pydantic import BaseModel
-from typing import List
+from typing import List, Dict, Any
 
 from backend.agents.llm import get_client
 from backend.config import GEMINI_MODEL
+from backend.core.sandbox import scaffold_and_run_project
 
 
 class BackendCodeBlueprint(BaseModel):
@@ -13,11 +15,37 @@ class BackendCodeBlueprint(BaseModel):
     dependencies_required: List[str]
 
 
-def run_backend_agent(project_statement: str, cto_blueprint: str, pm_requirements: str) -> BackendCodeBlueprint:
+class BackendWorkerResult(BaseModel):
+    blueprint: BackendCodeBlueprint
+    sandbox: Dict[str, Any]
+
+
+def run_backend_agent(
+    project_statement: str,
+    cto_blueprint: str,
+    pm_requirements: str,
+    security_notes: str = "",
+) -> BackendWorkerResult:
     """
     The Backend Worker Agent generates production-ready server-side code
-    (FastAPI/SQLAlchemy) based on the architectural blueprint and user stories.
+    (FastAPI/SQLAlchemy) based on the architectural blueprint and user stories,
+    then scaffolds the output to disk via the sandbox.
+
+    If `security_notes` is provided the agent is instructed to address those
+    vulnerabilities in the regenerated code (self-healing loop).
     """
+    healing_section = ""
+    if security_notes:
+        healing_section = f"""
+    IMPORTANT – Self-Healing Pass:
+    A previous version of your code was rejected by the Security Auditor.
+    You MUST address every vulnerability listed below before producing new code.
+    Do NOT reproduce any of the flaws described here.
+
+    Security Audit Findings:
+    {security_notes}
+    """
+
     prompt = f"""
     You are the Senior Backend Engineering Agent of VertexFlow.
 
@@ -28,7 +56,7 @@ def run_backend_agent(project_statement: str, cto_blueprint: str, pm_requirement
 
     Product Manager User Stories:
     {pm_requirements}
-
+    {healing_section}
     Your job is to generate production-ready Python backend code. Provide:
     1. The module name.
     2. SQLAlchemy/SQLModel or Pydantic database models code.
@@ -46,4 +74,9 @@ def run_backend_agent(project_statement: str, cto_blueprint: str, pm_requirement
         ),
     )
 
-    return BackendCodeBlueprint.model_validate_json(response.text)
+    blueprint = BackendCodeBlueprint.model_validate_json(response.text)
+
+    project_id = str(uuid.uuid4())[:8]
+    sandbox = scaffold_and_run_project(project_id, blueprint.model_dump())
+
+    return BackendWorkerResult(blueprint=blueprint, sandbox=sandbox)
