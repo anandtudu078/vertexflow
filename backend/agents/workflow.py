@@ -1,3 +1,4 @@
+import uuid
 import operator
 from typing import Annotated, List, Dict, Any, Optional
 from typing_extensions import TypedDict
@@ -9,6 +10,7 @@ from backend.agents.pm import run_pm_agent
 from backend.agents.backend_worker import run_backend_agent
 from backend.agents.frontend_worker import run_frontend_agent
 from backend.agents.security_auditor import run_security_auditor_agent
+from backend.core.sandbox import scaffold_and_run_project
 
 
 # Maximum number of self-healing iterations before giving up and finishing anyway.
@@ -37,8 +39,9 @@ class VertexFlowState(TypedDict):
     sandbox_result: Dict[str, Any]
     current_status: Annotated[str, _last]
     # Self-healing tracking fields
-    heal_iteration: int          # how many refactor loops have run so far
-    security_feedback: str       # serialised audit findings forwarded to workers
+    heal_iteration: int     # how many refactor loops have run so far
+    security_feedback: str  # serialised audit findings forwarded to workers
+    project_id: str         # stable ID so re-scaffolds overwrite the same folder
 
 
 # ---------------------------------------------------------------------------
@@ -52,6 +55,8 @@ def ceo_node(state: VertexFlowState) -> dict:
     return {
         "company_vision": strategy.company_vision,
         "milestones": [m.model_dump() for m in strategy.milestones],
+        # Assign a stable project_id once at the start of the pipeline
+        "project_id": state.get("project_id") or str(uuid.uuid4())[:8],
         "current_status": "CEO Strategy Complete",
     }
 
@@ -85,14 +90,14 @@ def pm_node(state: VertexFlowState) -> dict:
 
 
 def backend_worker_node(state: VertexFlowState) -> dict:
-    """Backend Worker agent: generates FastAPI / SQLAlchemy server code and scaffolds it.
+    """Backend Worker agent: generates FastAPI / SQLAlchemy server code.
 
     On self-healing passes the security audit findings are forwarded so the
     agent can explicitly address the identified vulnerabilities.
+    NOTE: Does NOT call the sandbox directly — scaffold_node does that after
+    both parallel workers (backend + frontend) have finished.
     """
     print("--- BACKEND WORKER AGENT WORKING ---")
-
-    # On refactor passes, security_feedback contains the serialised audit report.
     security_notes = state.get("security_feedback", "")
 
     result = run_backend_agent(
@@ -103,8 +108,7 @@ def backend_worker_node(state: VertexFlowState) -> dict:
     )
     return {
         "backend_code": result.blueprint.model_dump(),
-        "sandbox_result": result.sandbox,
-        "current_status": "Backend Code Generated & Scaffolded",
+        "current_status": "Backend Code Generated",
     }
 
 
@@ -119,6 +123,28 @@ def frontend_worker_node(state: VertexFlowState) -> dict:
     return {
         "frontend_code": frontend.model_dump(),
         "current_status": "Frontend Code Generated",
+    }
+
+
+def scaffold_node(state: VertexFlowState) -> dict:
+    """Scaffold node: called after both workers finish.
+
+    Writes all generated files to disk, installs pip dependencies, launches
+    the FastAPI backend as a subprocess, and scaffolds the React/Vite frontend.
+    Uses the stable project_id so re-scaffolds on heal cycles overwrite the
+    same output folder rather than creating duplicate directories.
+    """
+    print("--- SCAFFOLD NODE: WRITING FILES & STARTING SERVERS ---")
+    project_id = state.get("project_id") or str(uuid.uuid4())[:8]
+
+    sandbox = scaffold_and_run_project(
+        project_id=project_id,
+        backend_code=state["backend_code"],
+        frontend_code=state.get("frontend_code"),
+    )
+    return {
+        "sandbox_result": sandbox,
+        "current_status": "Project Scaffolded & Backend Server Running",
     }
 
 
@@ -142,12 +168,9 @@ def security_auditor_node(state: VertexFlowState) -> dict:
 def should_loop_back_to_workers(state: VertexFlowState) -> str:
     """
     Evaluates the Security Audit report.
-    - If vulnerabilities / critical issues are found AND the iteration cap has
-      not been reached, serialises the findings and loops back to the workers
-      for a patched regeneration.
-    - Once the cap is reached (MAX_HEAL_ITERATIONS) the pipeline finishes
-      regardless, preventing an infinite loop.
-    - If the audit passes, finishes immediately.
+    - Loops back to workers if issues found AND iteration cap not reached.
+    - Finishes (with a warning) once MAX_HEAL_ITERATIONS is hit.
+    - Finishes immediately on a passing audit.
     """
     audit = state.get("security_audit", {})
     status = audit.get("overall_status", "Passed")
@@ -164,7 +187,6 @@ def should_loop_back_to_workers(state: VertexFlowState) -> str:
         return "refactor"
 
     if needs_fix:
-        # Cap reached — warn but finish rather than loop forever.
         print(
             f"--- SECURITY AUDIT FAILED but max heal iterations ({MAX_HEAL_ITERATIONS}) reached. "
             "Finishing pipeline. ---"
@@ -176,15 +198,14 @@ def should_loop_back_to_workers(state: VertexFlowState) -> str:
 
 
 def increment_heal_iteration(state: VertexFlowState) -> dict:
-    """
-    Thin pass-through node executed before looping back to workers.
-    Increments the heal counter and serialises audit findings so workers
-    can use them as targeted instructions.
+    """Prep node before the refactor loop.
+
+    Increments the heal counter and serialises audit findings into a
+    human-readable string that the worker agents use to patch their output.
     """
     audit = state.get("security_audit", {})
     vulnerabilities = audit.get("vulnerabilities", [])
 
-    # Build a concise, human-readable summary of findings for the worker prompt.
     lines = [
         f"  [{v.get('severity', 'Unknown')}] {v.get('vulnerability_id', '')}: "
         f"{v.get('description', '')} — Remediation: {v.get('remediation', '')}"
@@ -192,15 +213,16 @@ def increment_heal_iteration(state: VertexFlowState) -> dict:
     ]
     feedback_text = "\n".join(lines) if lines else "General security issues found; harden the code."
 
+    iteration = state.get("heal_iteration", 0) + 1
     return {
-        "heal_iteration": state.get("heal_iteration", 0) + 1,
+        "heal_iteration": iteration,
         "security_feedback": feedback_text,
-        "current_status": f"Self-Healing Iteration {state.get('heal_iteration', 0) + 1} Starting",
+        "current_status": f"Self-Healing Iteration {iteration} Starting",
     }
 
 
 # ---------------------------------------------------------------------------
-# Graph wiring with Conditional Feedback Loop
+# Graph wiring
 # ---------------------------------------------------------------------------
 workflow = StateGraph(VertexFlowState)
 
@@ -209,28 +231,36 @@ workflow.add_node("cto_agent", cto_node)
 workflow.add_node("pm_agent", pm_node)
 workflow.add_node("backend_worker_agent", backend_worker_node)
 workflow.add_node("frontend_worker_agent", frontend_worker_node)
+workflow.add_node("scaffold_agent", scaffold_node)          # NEW: scaffold after both workers
 workflow.add_node("security_auditor_agent", security_auditor_node)
-workflow.add_node("heal_prep", increment_heal_iteration)   # new: prep before refactor
+workflow.add_node("heal_prep", increment_heal_iteration)
 
 workflow.set_entry_point("ceo_agent")
 workflow.add_edge("ceo_agent", "cto_agent")
 workflow.add_edge("cto_agent", "pm_agent")
+
+# Fan out to both workers in parallel
 workflow.add_edge("pm_agent", "backend_worker_agent")
 workflow.add_edge("pm_agent", "frontend_worker_agent")
-workflow.add_edge("backend_worker_agent", "security_auditor_agent")
-workflow.add_edge("frontend_worker_agent", "security_auditor_agent")
 
-# Conditional edge from Security Auditor
+# Both workers must finish before scaffolding
+workflow.add_edge("backend_worker_agent", "scaffold_agent")
+workflow.add_edge("frontend_worker_agent", "scaffold_agent")
+
+# Scaffold then audit
+workflow.add_edge("scaffold_agent", "security_auditor_agent")
+
+# Conditional: pass → finish, fail → heal_prep
 workflow.add_conditional_edges(
     "security_auditor_agent",
     should_loop_back_to_workers,
     {
-        "refactor": "heal_prep",   # go through prep node first, then workers
+        "refactor": "heal_prep",
         "finish": END,
     },
 )
 
-# heal_prep fans back out to both workers so frontend is also patched
+# heal_prep fans back out to both workers, then scaffold again with patched code
 workflow.add_edge("heal_prep", "backend_worker_agent")
 workflow.add_edge("heal_prep", "frontend_worker_agent")
 
