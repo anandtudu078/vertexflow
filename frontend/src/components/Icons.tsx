@@ -141,3 +141,10 @@ export const PackageIcon = (props: IconProps) => (
     <path d="M8 5.25 16 9.75" />
   </Icon>
 );
+
+export const TerminalIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <rect x="3" y="3.5" width="18" height="17" rx="2.5" />
+    <path d="m7 9 3.5 3L7 15M13 15h4" />
+  </Icon>
+);

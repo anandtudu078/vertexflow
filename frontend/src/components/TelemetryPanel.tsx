@@ -5,10 +5,14 @@ import { SparkIcon } from './Icons';
 import { Card, SectionHeading } from './ui';
 
 const ROLE_CLASSES: Record<LogEntry['role'], string> = {
-  CEO: 'text-indigo-300',
-  CTO: 'text-emerald-300',
-  System: 'text-slate-400',
-  Error: 'text-rose-400',
+  CEO:      'text-indigo-300',
+  CTO:      'text-emerald-300',
+  PM:       'text-sky-300',
+  Backend:  'text-amber-300',
+  Frontend: 'text-violet-300',
+  Security: 'text-rose-300',
+  System:   'text-slate-400',
+  Error:    'text-rose-400',
 };
 
 const timeFormatter = new Intl.DateTimeFormat(undefined, {

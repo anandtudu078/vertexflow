@@ -240,6 +240,9 @@ def require_user(request: Request) -> UserOut:
             connection.execute(
                 "DELETE FROM sessions WHERE token_hash = ?", (_hash_token(token),)
             )
+            # Raising skips the context manager's commit, which would roll the
+            # cleanup back and leave the expired row in place.
+            connection.commit()
             raise _unauthorised("Your session expired. Sign in again.")
 
     return UserOut(id=row["id"], email=row["email"], created_at=row["created_at"])

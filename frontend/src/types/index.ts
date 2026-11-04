@@ -92,6 +92,16 @@ export interface SecurityAuditReport {
   compliance_notes: string;
 }
 
+/** Sandbox scaffold result returned by backend/core/sandbox.py */
+export interface SandboxResult {
+  /** Absolute path on the server where the project was scaffolded. */
+  project_path: string;
+  /** Dynamically allocated port for the generated FastAPI app. */
+  assigned_port: number;
+  /** Human-readable outcome, e.g. "Scaffolded successfully". */
+  status: string;
+}
+
 /** Response of `POST /api/projects/launch`. Fields can be empty if a node fails. */
 export interface ProjectExecutionResponse {
   status: string;
@@ -103,6 +113,7 @@ export interface ProjectExecutionResponse {
   backend_code: Partial<BackendCodeBlueprint>;
   frontend_code: Partial<FrontendCodeBlueprint>;
   security_audit: Partial<SecurityAuditReport>;
+  sandbox_result: Partial<SandboxResult>;
 }
 
 /** Response of the backend root route, reachable through the `/health` proxy. */

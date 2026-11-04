@@ -199,7 +199,7 @@ export function BriefForm({
             </button>
           ) : (
             <p className="text-center text-[10px] text-slate-600">
-              Runs the CEO and CTO agents — usually 10–40 seconds.
+              Runs all 6 agents — usually 30–120 seconds.
             </p>
           )}
         </div>
