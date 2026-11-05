@@ -7,6 +7,7 @@ import { FrontendCodePanel } from './FrontendCodePanel';
 import { CheckIcon, CompassIcon, CopyIcon, DownloadIcon } from './Icons';
 import { MilestoneBoard } from './MilestoneBoard';
 import { ProductRequirementsPanel } from './ProductRequirementsPanel';
+import { SandboxPanel } from './SandboxPanel';
 import { SecurityAuditPanel } from './SecurityAuditPanel';
 import { Badge, Card, SectionHeading } from './ui';
 
@@ -35,6 +36,7 @@ export function ResultsView({
   const userStories = result.product_requirements?.user_stories ?? [];
   const vulnCount = result.security_audit?.vulnerabilities?.length ?? 0;
   const securityScore = result.security_audit?.security_score ?? 0;
+  const sandboxPort = result.sandbox_result?.assigned_port;
 
   const stack = brief.target_tech_stack
     .split(',')
@@ -108,13 +110,14 @@ export function ResultsView({
         </div>
 
         {/* Stats strip */}
-        <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
+        <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-7">
           <Stat label="Milestones" value={result.milestones.length} />
           <Stat label="Tickets" value={tasks.length} />
           <Stat label="DB models" value={models.length} />
           <Stat label="User stories" value={userStories.length} />
           <Stat label="Vulns" value={vulnCount} />
           <Stat label="Sec score" value={securityScore > 0 ? `${securityScore}/100` : '—'} />
+          <Stat label="Port" value={sandboxPort !== undefined ? String(sandboxPort) : '—'} />
         </div>
       </Card>
 
@@ -150,6 +153,9 @@ export function ResultsView({
 
       {/* Security audit */}
       <SecurityAuditPanel audit={result.security_audit ?? {}} />
+
+      {/* Sandbox scaffold */}
+      <SandboxPanel sandbox={result.sandbox_result ?? {}} />
     </div>
   );
 }

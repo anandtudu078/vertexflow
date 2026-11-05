@@ -25,7 +25,7 @@ async def lifespan(_: FastAPI):
     logger.info("Account database ready.")
 
     if has_gemini_api_key():
-        logger.info("GEMINI_API_KEY detected; the CEO -> CTO -> PM -> Backend/Frontend -> Security pipeline is ready.")
+        logger.info("GEMINI_API_KEY detected; the CEO -> CTO -> PM -> Backend/Frontend -> Security -> Sandbox pipeline is ready.")
     else:
         logger.warning(
             "GEMINI_API_KEY is not set. /api/projects/launch will return 503 until it is configured."
@@ -78,6 +78,7 @@ def launch_project(brief: ProjectBrief, current_user: UserOut = Depends(require_
             "backend_code": {},
             "frontend_code": {},
             "security_audit": {},
+            "sandbox_result": {},
             "current_status": "Starting Pipeline",
         }
 
@@ -94,6 +95,7 @@ def launch_project(brief: ProjectBrief, current_user: UserOut = Depends(require_
             "backend_code": final_state.get("backend_code"),
             "frontend_code": final_state.get("frontend_code"),
             "security_audit": final_state.get("security_audit"),
+            "sandbox_result": final_state.get("sandbox_result"),
         }
 
     except ConfigurationError as exc:

@@ -3,9 +3,9 @@ import type {
   FrontendCodeBlueprint,
   HealthResponse,
   Milestone,
-  ProductManagerBlueprint,
   ProjectBrief,
   ProjectExecutionResponse,
+  SandboxResult,
   SecurityAuditReport,
   TaskTicket,
   UserStory,
@@ -159,6 +159,11 @@ function normalizeResponse(payload: unknown): ProjectExecutionResponse {
       ? (data.security_audit as Record<string, unknown>)
       : {};
 
+  const sandboxRaw =
+    typeof data.sandbox_result === 'object' && data.sandbox_result !== null
+      ? (data.sandbox_result as Record<string, unknown>)
+      : {};
+
   return {
     status: asText(data.status, 'unknown'),
     current_status: asText(data.current_status, 'Pipeline finished'),
@@ -197,6 +202,12 @@ function normalizeResponse(payload: unknown): ProjectExecutionResponse {
       vulnerabilities: asArray<VulnerabilityItem>(auditRaw.vulnerabilities),
       compliance_notes: asText(auditRaw.compliance_notes),
     } satisfies SecurityAuditReport,
+    sandbox_result: {
+      project_path: asText(sandboxRaw.project_path),
+      assigned_port:
+        typeof sandboxRaw.assigned_port === 'number' ? sandboxRaw.assigned_port : undefined,
+      status: asText(sandboxRaw.status),
+    } satisfies Partial<SandboxResult>,
   };
 }
 
@@ -210,6 +221,7 @@ export async function launchProject(
   try {
     const response = await fetch(`${API_BASE}${LAUNCH_PATH}`, {
       method: 'POST',
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({
         project_statement: brief.project_statement.trim(),

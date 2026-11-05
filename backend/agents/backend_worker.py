@@ -1,11 +1,15 @@
-import uuid
-from google.genai import types
-from pydantic import BaseModel
-from typing import List, Dict, Any
+"""Backend Worker agent: turns the blueprint into FastAPI code.
 
-from backend.agents.llm import get_client
-from backend.config import GEMINI_MODEL
-from backend.core.sandbox import scaffold_and_run_project
+Scaffolding is deliberately left to the graph's scaffold node, which runs once
+after both workers finish; doing it here launched a second server and wrote a
+second project folder for every generation.
+"""
+
+from typing import List
+
+from pydantic import BaseModel
+
+from backend.agents.llm import generate_json, get_agent_llm_config
 
 
 class BackendCodeBlueprint(BaseModel):
@@ -17,7 +21,6 @@ class BackendCodeBlueprint(BaseModel):
 
 class BackendWorkerResult(BaseModel):
     blueprint: BackendCodeBlueprint
-    sandbox: Dict[str, Any]
 
 
 def run_backend_agent(
@@ -26,10 +29,7 @@ def run_backend_agent(
     pm_requirements: str,
     security_notes: str = "",
 ) -> BackendWorkerResult:
-    """
-    The Backend Worker Agent generates production-ready server-side code
-    (FastAPI/SQLAlchemy) based on the architectural blueprint and user stories,
-    then scaffolds the output to disk via the sandbox.
+    """Generate the server-side blueprint.
 
     If `security_notes` is provided the agent is instructed to address those
     vulnerabilities in the regenerated code (self-healing loop).
@@ -57,26 +57,21 @@ def run_backend_agent(
     Product Manager User Stories:
     {pm_requirements}
     {healing_section}
-    Your job is to generate production-ready Python backend code. Provide:
+    Generate production-ready Python server code. Provide:
     1. The module name.
-    2. SQLAlchemy/SQLModel or Pydantic database models code.
+    2. SQLModel/SQLAlchemy database models code.
     3. FastAPI endpoint router code implementing the core features.
-    4. A list of required Python pip dependencies (e.g., fastapi, sqlalchemy, pydantic).
+    4. The required Python pip dependencies.
+
+    Return your output strictly as a JSON object matching this schema:
+    {{
+      "module_name": "string",
+      "database_models_code": "string",
+      "api_endpoints_code": "string",
+      "dependencies_required": ["fastapi", "uvicorn", "sqlmodel"]
+    }}
     """
 
-    response = get_client().models.generate_content(
-        model=GEMINI_MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=BackendCodeBlueprint,
-            temperature=0.2,
-        ),
-    )
-
-    blueprint = BackendCodeBlueprint.model_validate_json(response.text)
-
-    project_id = str(uuid.uuid4())[:8]
-    sandbox = scaffold_and_run_project(project_id, blueprint.model_dump())
-
-    return BackendWorkerResult(blueprint=blueprint, sandbox=sandbox)
+    config = get_agent_llm_config("backend_worker")
+    blueprint = BackendCodeBlueprint.model_validate_json(generate_json(config, prompt))
+    return BackendWorkerResult(blueprint=blueprint)

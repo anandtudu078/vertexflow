@@ -10,6 +10,7 @@ const STAGES = [
   { key: 'pm',       label: 'PM agent',          detail: 'User stories' },
   { key: 'workers',  label: 'Backend / Frontend', detail: 'Code generation' },
   { key: 'security', label: 'Security auditor',  detail: 'Vulnerability scan' },
+  { key: 'sandbox',  label: 'Sandbox',           detail: 'Scaffold + port alloc' },
 ] as const;
 
 const DOT_CLASSES: Record<StageState, string> = {
@@ -20,16 +21,17 @@ const DOT_CLASSES: Record<StageState, string> = {
 };
 
 function statesFor(phase: Phase): StageState[] {
+  // 7 stages: brief, ceo, cto, pm, workers, security, sandbox
   switch (phase) {
     case 'running':
-      return ['done', 'active', 'active', 'pending', 'pending', 'pending'];
+      return ['done', 'active', 'active', 'active', 'active', 'active', 'active'];
     case 'success':
-      return ['done', 'done', 'done', 'done', 'done', 'done'];
+      return ['done', 'done', 'done', 'done', 'done', 'done', 'done'];
     case 'error':
-      return ['done', 'error', 'error', 'error', 'error', 'error'];
+      return ['done', 'error', 'error', 'error', 'error', 'error', 'error'];
     case 'idle':
     default:
-      return ['pending', 'pending', 'pending', 'pending', 'pending', 'pending'];
+      return ['pending', 'pending', 'pending', 'pending', 'pending', 'pending', 'pending'];
   }
 }
 
