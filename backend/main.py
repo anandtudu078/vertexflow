@@ -40,7 +40,7 @@ app.include_router(auth_router)
 # Configure CORS for frontend communication
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins for local testing
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -75,11 +75,18 @@ def launch_project(brief: ProjectBrief, current_user: UserOut = Depends(require_
             "milestones": [],
             "technical_blueprint": {},
             "product_requirements": {},
+            "ui_ux_blueprint": {},
+            "research_findings": {},
             "backend_code": {},
             "frontend_code": {},
+            "code_review": {},
+            "qa_report": {},
             "security_audit": {},
             "sandbox_result": {},
             "current_status": "Starting Pipeline",
+            "heal_iteration": 0,
+            "security_feedback": "",
+            "project_id": "",
         }
 
         logger.info("Running the agent pipeline for %s", current_user.email)
@@ -92,8 +99,12 @@ def launch_project(brief: ProjectBrief, current_user: UserOut = Depends(require_
             "milestones": final_state.get("milestones"),
             "technical_blueprint": final_state.get("technical_blueprint"),
             "product_requirements": final_state.get("product_requirements"),
+            "ui_ux_blueprint": final_state.get("ui_ux_blueprint"),
+            "research_findings": final_state.get("research_findings"),
             "backend_code": final_state.get("backend_code"),
             "frontend_code": final_state.get("frontend_code"),
+            "code_review": final_state.get("code_review"),
+            "qa_report": final_state.get("qa_report"),
             "security_audit": final_state.get("security_audit"),
             "sandbox_result": final_state.get("sandbox_result"),
         }
