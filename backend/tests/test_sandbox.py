@@ -77,6 +77,14 @@ def test_fix_imports_remaps_absolute_alias_import():
     assert "from database import" not in fixed
 
 
+def test_fix_imports_remaps_the_blueprints_model_field_name():
+    code = "from database_models_code import User, Task  # models file\n"
+
+    fixed = _fix_imports(code, MODELS_MODULE, ROUTER_MODULE)
+
+    assert "from models import User, Task" in fixed
+
+
 def test_fix_imports_remaps_router_self_import():
     code = "from todos import Task, User\n"
 
@@ -338,6 +346,23 @@ def test_build_entrypoint_creates_tables_after_app_is_defined():
     assert app_code.index("app = FastAPI(") < app_code.index("@app.on_event")
     assert "from models import SQLModel, engine" in app_code
     assert "SQLModel.metadata.create_all(engine)" in app_code
+
+
+def test_build_entrypoint_accepts_a_module_that_exports_a_fastapi_app():
+    full_app = "app = FastAPI(title=\"Todo API\")\n\n@app.get(\"/todos\")\ndef list_todos():\n    return []\n"
+
+    app_code = _build_entrypoint(ROUTER_MODULE, GENERATED_MODELS, MODELS_MODULE, full_app)
+
+    ast.parse(app_code)
+    assert "from todos import app as app_router" in app_code
+    assert "app.include_router(app_router.router)" in app_code
+
+
+def test_build_entrypoint_keeps_router_modules_unchanged():
+    app_code = _build_entrypoint(ROUTER_MODULE, GENERATED_MODELS, MODELS_MODULE, FIXED_ROUTER)
+
+    assert "from todos import router as app_router" in app_code
+    assert "app.include_router(app_router)" in app_code
 
 
 def test_build_entrypoint_prefers_create_db_and_tables_when_present():

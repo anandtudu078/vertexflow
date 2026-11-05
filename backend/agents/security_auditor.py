@@ -1,9 +1,7 @@
-from google.genai import types
 from pydantic import BaseModel
 from typing import List
 
-from backend.agents.llm import get_client
-from backend.config import GEMINI_MODEL
+from backend.agents.llm import generate_structured
 
 
 class VulnerabilityItem(BaseModel):
@@ -44,14 +42,6 @@ def run_security_auditor_agent(project_statement: str, backend_code: str, fronte
     Provide a security score (1-100), overall status, a list of identified vulnerabilities with severity levels, and specific remediation advice.
     """
 
-    response = get_client().models.generate_content(
-        model=GEMINI_MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=SecurityAuditReport,
-            temperature=0.2,
-        ),
+    return SecurityAuditReport.model_validate_json(
+        generate_structured(prompt, SecurityAuditReport, "security_auditor")
     )
-
-    return SecurityAuditReport.model_validate_json(response.text)

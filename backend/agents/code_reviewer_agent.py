@@ -1,7 +1,6 @@
-import json
 from pydantic import BaseModel, Field
 from typing import List
-from backend.agents.llm import get_agent_llm_config, generate_json
+from backend.agents.llm import generate_model
 
 
 class CodeReviewReport(BaseModel):
@@ -11,9 +10,6 @@ class CodeReviewReport(BaseModel):
 
 
 def run_code_reviewer_agent(project_statement: str, backend_code: str, frontend_code: str) -> CodeReviewReport:
-    # Fetch model config (routes to Gemini for meticulous code analysis)
-    config = get_agent_llm_config("code_reviewer_agent")
-
     prompt = f"""
     You are an elite Principal Software Engineer and Code Reviewer.
     Project Statement: {project_statement}
@@ -33,11 +29,4 @@ def run_code_reviewer_agent(project_statement: str, backend_code: str, frontend_
     }}
     """
 
-    response_text = generate_json(
-        config,
-        prompt,
-        system_prompt="You are a precise JSON code reviewer and static analysis expert."
-    )
-
-    data = json.loads(response_text)
-    return CodeReviewReport(**data)
+    return generate_model(prompt, CodeReviewReport, "code_reviewer_agent")

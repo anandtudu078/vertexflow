@@ -7,6 +7,10 @@ import { FrontendCodePanel } from './FrontendCodePanel';
 import { CheckIcon, CompassIcon, CopyIcon, DownloadIcon } from './Icons';
 import { MilestoneBoard } from './MilestoneBoard';
 import { ProductRequirementsPanel } from './ProductRequirementsPanel';
+import { QaReportPanel } from './QaReportPanel';
+import { ResearchFindingsPanel } from './ResearchFindingsPanel';
+import { UiUxBlueprintPanel } from './UiUxBlueprintPanel';
+import { CodeReviewReportPanel } from './CodeReviewReportPanel';
 import { SandboxPanel } from './SandboxPanel';
 import { SecurityAuditPanel } from './SecurityAuditPanel';
 import { Badge, Card, SectionHeading } from './ui';
@@ -153,6 +157,18 @@ export function ResultsView({
 
       {/* Security audit */}
       <SecurityAuditPanel audit={result.security_audit ?? {}} />
+
+      {/* Research findings */}
+      <ResearchFindingsPanel findings={result.research_findings ?? {}} />
+
+      {/* UI/UX blueprint */}
+      <UiUxBlueprintPanel blueprint={result.ui_ux_blueprint ?? {}} />
+
+      {/* Code review */}
+      <CodeReviewReportPanel review={result.code_review ?? {}} />
+
+      {/* QA report */}
+      <QaReportPanel qa={result.qa_report ?? {}} />
 
       {/* Sandbox scaffold */}
       <SandboxPanel sandbox={result.sandbox_result ?? {}} />
