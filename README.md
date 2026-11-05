@@ -45,13 +45,69 @@ Built with **FastAPI + LangGraph + Gemini** on the backend and **React + TypeScr
 
 ## What's New (10-Agent Pipeline)
 
-The workflow now has **10 agents** organized as a StateGraph:
+The workflow now has **10 agents** organized as a StateGraph. The pipeline ordering is:
 
-```
-research → ceo → cto → pm → (backend | ui_ux → frontend) → code_reviewer → qa → scaffold → security_auditor
-```
+1. **Research agent** — gathers modern patterns, library docs, and pitfalls
+2. **CEO agent** — sets company vision and breaks execution into 3–5 sequential milestones with owning departments; assigns a stable `project_id`
+3. **CTO agent** — reads the brief plus those milestones and returns an architecture overview, the required database models and actionable engineering tickets with difficulty ratings
+4. **PM agent** — reads the brief, milestones and technical blueprint and produces a product scope summary plus user stories each with explicit acceptance criteria
+5. **UI/UX agent** — defines color palettes, typography, and design systems (runs in parallel with Backend worker)
+6. **Backend worker** — generates FastAPI / SQLAlchemy server code (models, endpoints, dependencies) and scaffolds the files to disk via `scaffold_and_run_project` (runs in parallel with Frontend worker)
+7. **Frontend worker** — generates a React / TypeScript component, Tailwind classes and a state management summary. Runs in parallel with Backend worker, using UI/UX design specs
+8. **Code Reviewer agent** — performs static analysis and clean code reviews
+9. **QA Test Engineer agent** — designs unit tests and verifies test pass rates
+10. **Security Auditor agent** — audits the generated backend and frontend code for vulnerabilities and returns a 1–100 score, findings list and compliance notes
 
-with a 3-pass self-healing loop (`MAX_HEAL_ITERATIONS = 3`). The pipeline produces:
+The pipeline uses conditional self-healing: if the security audit fails (score < 80 or `overall_status != "Passed"`) or the backend fails to boot, the graph loops back to the workers for a maximum of 3 iterations before finishing.
+
+### Visual Workflow Diagram
+
+```mermaid
+flowchart TD
+    %% Node styles
+    classDef agent fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef fillOrange fill:#ffe0b2,stroke:#ef6c00,stroke-width:2px
+    classDef fillGreen fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
+
+    %% Main flow nodes
+    Research[Research agent]
+    CEO[CEO agent]
+    CTO[CTO agent]
+    PM[PM agent]
+    UIux[UI/UX agent]
+    Backend[Backend worker]
+    Frontend[Frontend worker]
+    CodeReview[Code Reviewer agent]
+    QA[QA Test Engineer]
+    Scaffold[Scaffold node]
+    Security[Security Auditor agent]
+
+    %% Terminal nodes
+    classDef terminal fill:#fff,stroke:#666,stroke-width:1px
+
+    Start([Start])
+    End([End])
+
+    %% Connections
+    Start --> Research
+    Research --> CEO
+    CEO --> CTO
+    CTO --> PM
+    PM --> UIux
+    PM --> Backend
+    UIux --> Frontend
+    Backend --> CodeReview
+    Frontend --> CodeReview
+    CodeReview --> QA
+    QA --> Scaffold
+    Scaffold --> Security
+    Security --> End
+
+    %% Class assignments
+    class Research,CEO,CTO,PM,UIux,Backend,Frontend,CodeReview,QA,Scaffold,Security agent
+    classFillOrange Research,CEO,CTO,PM
+    classFillGreen UIux,Backend,Frontend
+```
 
 | Agent | Output |
 |-------|--------|
@@ -277,7 +333,46 @@ Accepts a connection and streams telemetry events from the pipeline run. The cli
 │       ├── security_auditor.py # Vulnerability scan
 │       └── workflow.py      # LangGraph StateGraph wiring all 10 nodes
 ├── frontend/
-│   ├── src/
+
+## Frontend Agent Structure
+
+The frontend contains the client-side application that interacts with the backend API and renders the pipeline results:
+
+```
+├── src/
+│   ├── App.tsx              # Session gate, run state machine and layout
+│   ├── components/          # Auth screen, brief form, header, telemetry panel,
+│   │   # pipeline stages, results view, milestone board,
+│   │   # research panel, UI/UX panel, code review panel, QA panel,
+│   │   # backend/frontend code panels, security audit panel, sandbox panel
+│   ├── lib/                 # API client, auth client, export helpers, utilities
+│   ├── types/               # TypeScript types mirrored from Pydantic models
+│   └── index.tsx            # Root component
+│   └── main.tsx             # Entry point
+│   └── vite.config.ts       # Vite config with proxy to backend
+│   └── tailwind.config.ts   # Tailwind CSS config
+│   └── tsconfig.json        # TypeScript compiler options
+│   └── env.d.ts             # Environment variable types
+│└── README.md               # Frontend-specific documentation
+```
+
+**Key Components:**
+- **App.tsx** — Session management, run state machine, and main layout
+- **BriefForm** — Captures project brief and tech stack input
+- **PipelineStages** — Visual dashboard showing all 10 agent stages
+- **ResultsView** — Displays complete pipeline output with all agent panels
+- **ResearchFindingsPanel** — Shows research agent output
+- **UiUxBlueprintPanel** — Shows UI/UX design system output
+- **CodeReviewReportPanel** — Shows static analysis results
+- **QaReportPanel** — Shows QA test output
+- **BackendCodePanel** — Shows generated FastAPI code
+- **FrontendCodePanel** — Shows generated React component code
+- **SecurityAuditPanel** — Shows vulnerability scan results
+- **SandboxPanel** — Shows scaffolded app information
+
+**API Proxy:**
+The dev server proxies `/api` and `/health` to `http://127.0.0.1:8000`, so the browser
+only ever talks to its own origin — no CORS setup needed during development.│   ├── src/
 │   │   ├── App.tsx          # Session gate, run state machine and layout
 │   │   ├── components/      # Auth screen, brief form, header, telemetry panel,
 │   │   │                    # pipeline stages, results view, milestone board,
