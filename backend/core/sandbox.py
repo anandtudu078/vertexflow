@@ -221,7 +221,9 @@ _RUNTIME_HELPER_NAMES = (
     "create_db_and_tables",
 )
 
-# Module names the LLM uses when referring to the models/database file.
+# Module names the LLM uses when referring to the models/database file. The
+# `*_code` spellings are the blueprint's own field names, which the router used
+# to import as if a module by that name existed on disk.
 _MODEL_MODULE_ALIASES = {
     "models",
     "model",
@@ -232,6 +234,10 @@ _MODEL_MODULE_ALIASES = {
     "database_models",
     "db_models",
     "data_models",
+    "database_models_code",
+    "db_models_code",
+    "data_models_code",
+    "models_code",
 }
 
 
@@ -421,7 +427,9 @@ def _imported_from_module(code: str, module_name: str) -> set[str]:
     for match in re.finditer(pattern, code):
         raw = match.group(1).replace("(", " ").replace(")", " ")
         for part in raw.split(","):
+            # Strip inline comments so "get_session  # comment" becomes "get_session"
             name = part.strip().split(" as ")[0].strip()
+            name = name.split("#")[0].strip()
             if name and name != "*":
                 imported.add(name)
     return imported
@@ -513,13 +521,38 @@ def _ensure_model_runtime(
     return models_code.rstrip() + "\n" + "\n".join(lines) + "\n"
 
 
-def _build_entrypoint(module_name: str, models_code: str, models_module: str) -> str:
+def _router_export_name(router_code: str) -> str:
+    """Name under which the generated module exposes its routes.
+
+    The agent usually returns an `APIRouter` called `router`, but it sometimes
+    returns a finished `FastAPI` app called `app` — importing `router` from that
+    module fails at startup with `cannot import name 'router'`.
+    """
+    if re.search(r"(?m)^\s*router\s*(?::[^=\n]+)?=", router_code):
+        return "router"
+    if re.search(r"(?m)^\s*app\s*(?::[^=\n]+)?=", router_code):
+        return "app"
+    return "router"
+
+
+def _build_entrypoint(
+    module_name: str,
+    models_code: str,
+    models_module: str,
+    router_code: str = "",
+) -> str:
     """Generate app.py that boots the FastAPI app correctly.
 
     The startup hook only imports helpers that the models module actually defines,
     so a missing `create_db_and_tables` / `SQLModel` symbol cannot break app import.
     It is also emitted *after* `app` exists, because the decorator evaluates eagerly.
     """
+    export = _router_export_name(router_code)
+    if export == "app":
+        # A complete FastAPI app: borrow its routes instead of expecting a router.
+        include_line = "app.include_router(app_router.router)"
+    else:
+        include_line = "app.include_router(app_router)"
     startup_imports: list[str] = []
     startup_lines: list[str] = []
 
@@ -549,7 +582,7 @@ def _build_entrypoint(module_name: str, models_code: str, models_module: str) ->
     return f"""\
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from {module_name} import router as app_router
+from {module_name} import {export} as app_router
 
 app = FastAPI(title="Generated VertexFlow App")
 
@@ -561,7 +594,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(app_router)
+{include_line}
 {db_init_block}
 if __name__ == "__main__":
     import uvicorn
@@ -634,7 +667,7 @@ def scaffold_and_run_project(
     (base_dir / "models.py").write_text(models_code, encoding="utf-8")
     (base_dir / f"{module_name}.py").write_text(endpoints_code, encoding="utf-8")
     (base_dir / "app.py").write_text(
-        _build_entrypoint(module_name, models_code, models_module),
+        _build_entrypoint(module_name, models_code, models_module, endpoints_code),
         encoding="utf-8",
     )
     (base_dir / "requirements.txt").write_text("\n".join(requirements), encoding="utf-8")
@@ -643,10 +676,19 @@ def scaffold_and_run_project(
     logger.info(f"Scaffolded project {project_id} at {base_dir.resolve()}")
 
     # ------------------------------------------------------------------
-    # 3. Install Python dependencies (same interpreter / venv as this process)
+    # 3. Install Python dependencies in an isolated per-project venv.
+    #    This prevents generated dependencies from mutating the host environment.
     # ------------------------------------------------------------------
+    venv_dir = base_dir / ".venv"
+    if not venv_dir.exists():
+        import venv as _mod_venv
+        venv_dir.mkdir(parents=True, exist_ok=True)
+        _mod_venv.cli_main(["--without-pip", "--clear", "create", str(venv_dir)])
+
+    pip_path = str(venv_dir / "bin" if hasattr(venv_dir, "joinpath") else "Scripts")
+    pip = [os.path.join(pip_path, "python") if hasattr(venv_dir, "joinpath") else os.path.join(pip_path, "python.exe")]
     pip_result = subprocess.run(
-        [sys.executable, "-m", "pip", "install", "-r", "requirements.txt", "-q"],
+        pip + ["-m", "pip", "install", "-r", "requirements.txt", "-q"],
         cwd=str(base_dir.resolve()),
         capture_output=True,
         text=True,
