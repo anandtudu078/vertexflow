@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
@@ -37,10 +38,19 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="VertexFlow Core Engine", version="1.0.0", lifespan=lifespan)
 app.include_router(auth_router)
 
-# Configure CORS for frontend communication
+# Configure CORS for frontend communication - restricted origins for security*
+# See: https://fastapi.tiangolo.com/tutorial/cors/#web-browser-same-origin
+# WARNING: browsers reject wildcards with credentials (allow_credentials=True)
+# so we use explicit origins rather than ["*"]
+def _cors_origins() -> list[str]:
+    origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    if os.getenv("VERTEXFLOW_CORS_ALLOW_ALL", "false").lower() == "true":
+        origins.append("*")
+    return origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -114,7 +124,8 @@ def launch_project(brief: ProjectBrief, current_user: UserOut = Depends(require_
 
     except Exception as e:
         logger.exception("Agent pipeline failed")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Surface only generic error to client; full traceback is logged server-side
+        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
 
 @app.websocket("/ws/monitor/{project_id}")
