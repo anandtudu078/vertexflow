@@ -164,6 +164,26 @@ function normalizeResponse(payload: unknown): ProjectExecutionResponse {
       ? (data.sandbox_result as Record<string, unknown>)
       : {};
 
+  const researchRaw =
+    typeof data.research_findings === 'object' && data.research_findings !== null
+      ? (data.research_findings as Record<string, unknown>)
+      : {};
+
+  const uiRaw =
+    typeof data.ui_ux_blueprint === 'object' && data.ui_ux_blueprint !== null
+      ? (data.ui_ux_blueprint as Record<string, unknown>)
+      : {};
+
+  const reviewRaw =
+    typeof data.code_review === 'object' && data.code_review !== null
+      ? (data.code_review as Record<string, unknown>)
+      : {};
+
+  const qaRaw =
+    typeof data.qa_report === 'object' && data.qa_report !== null
+      ? (data.qa_report as Record<string, unknown>)
+      : {};
+
   return {
     status: asText(data.status, 'unknown'),
     current_status: asText(data.current_status, 'Pipeline finished'),
@@ -179,6 +199,18 @@ function normalizeResponse(payload: unknown): ProjectExecutionResponse {
     product_requirements: {
       product_scope_summary: asText(pmRaw.product_scope_summary),
       user_stories: asArray<UserStory>(pmRaw.user_stories),
+    },
+    research_findings: {
+      raw: researchRaw,
+    },
+    ui_ux_blueprint: {
+      raw: uiRaw,
+    },
+    code_review: {
+      raw: reviewRaw,
+    },
+    qa_report: {
+      raw: qaRaw,
     },
     backend_code: {
       module_name: asText(backendRaw.module_name),
@@ -208,7 +240,7 @@ function normalizeResponse(payload: unknown): ProjectExecutionResponse {
         typeof sandboxRaw.assigned_port === 'number' ? sandboxRaw.assigned_port : undefined,
       status: asText(sandboxRaw.status),
     } satisfies Partial<SandboxResult>,
-  };
+  } as ProjectExecutionResponse;
 }
 
 /** Runs the full CEO → CTO → PM → Backend/Frontend → Security agent pipeline. */

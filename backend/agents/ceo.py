@@ -1,10 +1,8 @@
 from typing import List
 
-from google.genai import types
 from pydantic import BaseModel
 
-from backend.agents.llm import get_client
-from backend.config import GEMINI_MODEL
+from backend.agents.llm import generate_structured
 
 
 class Milestone(BaseModel):
@@ -35,14 +33,6 @@ def run_ceo_agent(project_statement: str, target_tech_stack: str) -> CEOStrategy
     to the CTO and engineering departments.
     """
 
-    response = get_client().models.generate_content(
-        model=GEMINI_MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=CEOStrategyResponse,
-            temperature=0.2,
-        ),
+    return CEOStrategyResponse.model_validate_json(
+        generate_structured(prompt, CEOStrategyResponse, "ceo")
     )
-
-    return CEOStrategyResponse.model_validate_json(response.text)

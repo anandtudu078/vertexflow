@@ -1,9 +1,7 @@
-from google.genai import types
 from pydantic import BaseModel
 from typing import List
 
-from backend.agents.llm import get_client
-from backend.config import GEMINI_MODEL
+from backend.agents.llm import generate_structured
 
 
 class UserStory(BaseModel):
@@ -38,14 +36,6 @@ def run_pm_agent(project_statement: str, ceo_milestones: str, cto_blueprint: str
     complete with user roles, feature goals, and explicit acceptance criteria.
     """
 
-    response = get_client().models.generate_content(
-        model=GEMINI_MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=ProductManagerBlueprint,
-            temperature=0.2,
-        ),
+    return ProductManagerBlueprint.model_validate_json(
+        generate_structured(prompt, ProductManagerBlueprint, "pm")
     )
-
-    return ProductManagerBlueprint.model_validate_json(response.text)

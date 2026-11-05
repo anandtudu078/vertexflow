@@ -1,7 +1,6 @@
-import json
 from pydantic import BaseModel, Field
 from typing import List
-from backend.agents.llm import get_agent_llm_config, generate_json
+from backend.agents.llm import generate_model
 
 
 class ResearchFindings(BaseModel):
@@ -11,9 +10,6 @@ class ResearchFindings(BaseModel):
 
 
 def run_research_agent(project_statement: str, target_tech_stack: str) -> ResearchFindings:
-    # Fetch model config (routes to Gemini for analytical depth)
-    config = get_agent_llm_config("research_agent")
-
     prompt = f"""
     You are an expert Technical Researcher and Developer Advocate.
     Project Statement: {project_statement}
@@ -28,11 +24,4 @@ def run_research_agent(project_statement: str, target_tech_stack: str) -> Resear
     }}
     """
 
-    response_text = generate_json(
-        config,
-        prompt,
-        system_prompt="You are a precise JSON technical researcher."
-    )
-
-    data = json.loads(response_text)
-    return ResearchFindings(**data)
+    return generate_model(prompt, ResearchFindings, "research_agent")

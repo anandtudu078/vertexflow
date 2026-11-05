@@ -1,7 +1,6 @@
-import json
 from pydantic import BaseModel, Field
 from typing import List
-from backend.agents.llm import get_agent_llm_config, generate_json
+from backend.agents.llm import generate_model
 
 
 class QATestReport(BaseModel):
@@ -12,9 +11,6 @@ class QATestReport(BaseModel):
 
 
 def run_qa_agent(project_statement: str, backend_code: str, frontend_code: str) -> QATestReport:
-    # Fetch model config (routes to Gemini for test planning & logic verification)
-    config = get_agent_llm_config("qa_agent")
-
     prompt = f"""
     You are an expert QA and Test Automation Engineer.
     Project Statement: {project_statement}
@@ -35,11 +31,4 @@ def run_qa_agent(project_statement: str, backend_code: str, frontend_code: str) 
     }}
     """
 
-    response_text = generate_json(
-        config,
-        prompt,
-        system_prompt="You are a precise JSON QA automation engineer."
-    )
-
-    data = json.loads(response_text)
-    return QATestReport(**data)
+    return generate_model(prompt, QATestReport, "qa_agent")

@@ -82,6 +82,26 @@ export interface VulnerabilityItem {
   remediation: string;
 }
 
+/** Research agent agent output. */
+export interface ResearchFindings {
+  raw: Record<string, unknown>;
+}
+
+/** UI/UX Stylist agent output. */
+export interface UiUxBlueprint {
+  raw: Record<string, unknown>;
+}
+
+/** Code Reviewer agent output. */
+export interface CodeReviewReport {
+  raw: Record<string, unknown>;
+}
+
+/** QA Test Engineer agent output. */
+export interface QaReport {
+  raw: Record<string, unknown>;
+}
+
 /** Security Auditor agent output. */
 export interface SecurityAuditReport {
   /** Score from 1–100. */
@@ -110,6 +130,10 @@ export interface ProjectExecutionResponse {
   milestones: Milestone[];
   technical_blueprint: Partial<CTOTechnicalBlueprint>;
   product_requirements: Partial<ProductManagerBlueprint>;
+  research_findings: Partial<ResearchFindings>;
+  ui_ux_blueprint: Partial<UiUxBlueprint>;
+  code_review: Partial<CodeReviewReport>;
+  qa_report: Partial<QaReport>;
   backend_code: Partial<BackendCodeBlueprint>;
   frontend_code: Partial<FrontendCodeBlueprint>;
   security_audit: Partial<SecurityAuditReport>;
