@@ -1,5 +1,6 @@
 import logging
 import os
+import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
@@ -113,6 +114,7 @@ def launch_project(brief: ProjectBrief, current_user: UserOut = Depends(require_
         raise HTTPException(status_code=503, detail=MISSING_KEY_DETAIL)
 
     try:
+        project_id = str(uuid.uuid4())[:8]
         initial_state = {
             "project_statement": brief.project_statement,
             "target_tech_stack": brief.target_tech_stack,
@@ -131,15 +133,15 @@ def launch_project(brief: ProjectBrief, current_user: UserOut = Depends(require_
             "current_status": "Starting Pipeline",
             "heal_iteration": 0,
             "security_feedback": "",
-            "project_id": "",
+            "project_id": project_id,
         }
 
         logger.info("Running the agent pipeline for %s", current_user.email)
         # Store initial state so status endpoint can return something meaningful
-        _PROJECT_STATES[initial_state["project_id"]] = {
+        _PROJECT_STATES[project_id] = {
             "status": "pending",
             "current_status": "Starting Pipeline",
-            "project_id": initial_state["project_id"],
+            "project_id": project_id,
         }
         # Run pipeline in background thread so the HTTP request returns right away
         import threading as _threading
@@ -150,12 +152,12 @@ def launch_project(brief: ProjectBrief, current_user: UserOut = Depends(require_
             try:
                 final_state = vertex_flow_app.invoke(initial_state)
                 # Persist final state so the status endpoint can return it
-                marker_dir = Path("./output") / f"project_{initial_state['project_id']}"
+                marker_dir = Path("./output") / f"project_{project_id}"
                 marker_dir.mkdir(parents=True, exist_ok=True)
                 (marker_dir / "final_state.json").write_text(
                     json.dumps(final_state), encoding="utf-8"
                 )
-                _PROJECT_STATES[initial_state["project_id"]].update(
+                _PROJECT_STATES[project_id].update(
                     {
                         "status": "success",
                         "current_status": final_state.get("current_status"),
@@ -175,7 +177,7 @@ def launch_project(brief: ProjectBrief, current_user: UserOut = Depends(require_
                 )
             except Exception as e:
                 logger.exception("Background pipeline worker failed")
-                _PROJECT_STATES[initial_state["project_id"]].update(
+                _PROJECT_STATES[project_id].update(
                     {
                         "status": "error",
                         "current_status": "Pipeline failed",
@@ -188,7 +190,7 @@ def launch_project(brief: ProjectBrief, current_user: UserOut = Depends(require_
 
         return {
             "status": "pending",
-            "project_id": initial_state["project_id"],
+            "project_id": project_id,
             "message": "Pipeline launched in background. Poll /api/projects/{project_id}/status or use WebSocket monitor.",
         }
     except ConfigurationError as exc:
@@ -201,4 +203,6 @@ def launch_project(brief: ProjectBrief, current_user: UserOut = Depends(require_
 
 
 @app.websocket("/ws/monitor/{project_id}")
-async def websocket_monitor(websocket: WebSocket, project_id: str)
+async def websocket_monitor(websocket: WebSocket, project_id: str):
+    await websocket.accept()
+  
